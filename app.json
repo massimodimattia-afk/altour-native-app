@@ -4,17 +4,21 @@
     "slug": "altour-italy-native-app",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.altouritalynativeapp",
+      "icon": "./assets/icon.png"
     },
     "android": {
+      "package": "com.anonymous.altouritalynativeapp",
       "adaptiveIcon": {
-        "backgroundColor": "#ffffff"
-      },
-      "package": "com.anonymous.altouritalynativeapp"
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#5aaadd"
+      }
     },
     "web": {
       "bundler": "metro",
@@ -26,6 +30,11 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#5aaadd"
     }
   }
 }
