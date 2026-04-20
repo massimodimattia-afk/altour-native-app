@@ -299,3 +299,5 @@ export function CourseCard({ corso, onBookingClick, openDetails }: CourseCardPro
     </Animated.View>
   );
 }
+
+export default CourseCard;

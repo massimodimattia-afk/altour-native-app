@@ -1,5 +1,5 @@
-// app/(tabs)/index.tsx (o app/index.tsx a seconda della struttura)
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+// app/(tabs)/index.tsx - VERSIONE CORRETTA (SENZA Section)
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,15 +8,10 @@ import {
   TouchableOpacity,
   Linking,
   Dimensions,
-  ActivityIndicator,
+  StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import Animated, {
-  FadeIn,
-  FadeInUp,
-  FadeInDown,
-} from 'react-native-reanimated';
 import {
   Clock,
   TrendingUp,
@@ -28,12 +23,11 @@ import {
   ArrowRight,
 } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
-import Section, { isIOS } from '../../components/Section';
 import { CourseCard, Corso } from '../../components/CourseCard';
 import ActivityDetailModal from '../../components/ActivityDetailModal';
 
 // --- Tipi (invariati) ---
-type Escursione = any; // Sostituisci con il tipo corretto se hai generato i tipi Supabase
+type Escursione = any;
 interface Campo {
   id: string;
   titolo: string;
@@ -45,33 +39,88 @@ interface Campo {
   _tipo: 'campo';
 }
 type FeaturedActivity = Escursione | Campo;
-
 interface HomeProps {
-  // Le props originali non servono più: la navigazione è gestita da Expo Router
-  // e onBookingClick può essere passata tramite contesto o gestita qui.
   onBookingClick?: (title: string, mode?: 'info' | 'prenota') => void;
 }
 
-// --- Costanti e utility (copiate dal web) ---
-const IMG_FALLBACK = require('../../assets/altour-logo.png');
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+const isTablet = width >= 768;
+const SKY = '#0ea5e9';
+const STONE = '#1c1917';
 
+// --- Stili ---
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f5f2ed' },
+  scrollContent: { paddingBottom: 40 },
+  // Hero
+  heroContainer: { height, backgroundColor: '#2a2a2a', justifyContent: 'flex-end' },
+  heroImage: StyleSheet.absoluteFillObject,
+  heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.38)' },
+  heroContent: { paddingHorizontal: 24, paddingBottom: 48, alignItems: 'center' },
+  heroTitle: { fontSize: 72, fontWeight: '900', color: 'white', textTransform: 'uppercase', letterSpacing: -2, lineHeight: 72, textAlign: 'center' },
+  heroSub: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 8, textTransform: 'uppercase', marginTop: 6 },
+  heroTagline: { fontSize: 14, color: 'rgba(255,255,255,0.6)', fontWeight: '500', marginBottom: 28, marginTop: 8 },
+  heroBtnRow: { flexDirection: 'row', gap: 10, width: '100%', maxWidth: 360, marginBottom: 24 },
+  heroBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(255,255,255,0.1)' },
+  heroBtnTxt: { color: 'white', fontWeight: '900', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1.5 },
+  statsBox: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', borderRadius: 20, paddingVertical: 16, paddingHorizontal: 12, width: '100%', maxWidth: 400 },
+  statItem: { alignItems: 'center', gap: 4 },
+  statValue: { fontSize: 15, fontWeight: '900', color: 'white' },
+  statLabel: { fontSize: 9, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: '700' },
+  // Sezioni
+  section: { paddingHorizontal: 16, paddingTop: 40, paddingBottom: 20 },
+  accent: { width: 28, height: 3, borderRadius: 2, backgroundColor: SKY },
+  tag: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 3 },
+  heading: { fontSize: 34, fontWeight: '900', color: STONE, textTransform: 'uppercase', letterSpacing: -1, lineHeight: 36, flex: 1 },
+  headingItalic: { fontStyle: 'italic', fontWeight: '300', color: SKY, letterSpacing: 0 },
+  seeAll: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1.5, color: '#a8a29e' },
+  seeAllCircle: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: '#e7e5e4', alignItems: 'center', justifyContent: 'center' },
+  // Card
+  card: { backgroundColor: 'white', borderRadius: 28, overflow: 'hidden', borderWidth: 1, borderColor: '#f5f5f4', shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 24, elevation: 6 },
+  cardImg: { height: 200, backgroundColor: '#d4d0cb' },
+  cardImgOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(28,25,23,0.55)' },
+  cardImgContent: { position: 'absolute', bottom: 20, left: 24, right: 24 },
+  cardImgTagRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  cardImgTag: { fontSize: 9, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 3, color: 'white' },
+  cardImgTitle: { fontSize: 22, fontWeight: '900', color: 'white', textTransform: 'uppercase', letterSpacing: -0.5, lineHeight: 26, fontStyle: 'italic' },
+  cardBody: { padding: 24, backgroundColor: '#faf9f7' },
+  cardDesc: { fontSize: 14, color: '#78716c', lineHeight: 22, marginBottom: 20 },
+  voucherRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  voucherBtn: { flex: 1, minWidth: 80, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, borderWidth: 2 },
+  voucherBtnTxt: { fontSize: 16, fontWeight: '900' },
+  voucherBtnTag: { fontSize: 8, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1, marginTop: 2 },
+  primaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 12, backgroundColor: STONE },
+  primaryBtnTxt: { color: 'white', fontWeight: '900', fontSize: 10, textTransform: 'uppercase', letterSpacing: 2 },
+  // Attività card
+  actCard: { backgroundColor: 'white', borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: '#f5f5f4', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4 },
+  actImg: { height: 200, backgroundColor: '#d4d0cb' },
+  actImgOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.2)' },
+  actBody: { padding: 20 },
+  actMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+  actMetaTxt: { fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1, color: SKY },
+  actTitle: { fontSize: 18, fontWeight: '900', color: STONE, textTransform: 'uppercase', letterSpacing: -0.5, lineHeight: 22, marginBottom: 10 },
+  actDesc: { fontSize: 13, color: '#78716c', lineHeight: 20, marginBottom: 20 },
+  actBtnRow: { flexDirection: 'row', gap: 10, borderTopWidth: 1, borderTopColor: '#f5f5f4', paddingTop: 16 },
+  outlineBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 2, borderColor: '#e7e5e4', alignItems: 'center' },
+  outlineBtnTxt: { fontWeight: '900', fontSize: 9, textTransform: 'uppercase', letterSpacing: 2, color: '#57534e' },
+  fillBtn: { flex: 1.5, paddingVertical: 12, borderRadius: 12, alignItems: 'center', backgroundColor: SKY },
+  fillBtnTxt: { fontWeight: '900', fontSize: 9, textTransform: 'uppercase', letterSpacing: 2, color: 'white' },
+  // Badge
+  badge: { position: 'absolute', top: 12, right: 12, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
+  badgeText: { fontSize: 9, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1.5, color: 'rgba(255,255,255,0.95)' },
+  // FAB
+  fab: { position: 'absolute', right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: '#25D366', alignItems: 'center', justifyContent: 'center', shadowColor: '#25D366', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 8 },
+  // Skeleton
+  skeletonCard: { backgroundColor: 'white', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#f5f5f4' },
+});
+
+// --- Utility functions ---
 const FILOSOFIA_COLORS: Record<string, string> = {
-  Avventura: '#e94544',
-  Benessere: '#a5d9c9',
-  'Borghi più belli': '#946a52',
-  Cammini: '#e3c45d',
-  "Educazione all'aperto": '#01aa9f',
-  Eventi: '#ffc0cb',
-  Formazione: '#002f59',
-  'Immersi nel verde': '#358756',
-  'Luoghi dello spirito': '#c8a3c9',
-  Novità: '#75c43c',
-  Speciali: '#b8163c',
-  'Tra mare e cielo': '#7aaecd',
-  'Trek urbano': '#f39452',
-  'Tracce sulla neve': '#a8cce0',
-  'Cielo stellato': '#1e2855',
+  Avventura: '#e94544', Benessere: '#a5d9c9', 'Borghi più belli': '#946a52',
+  Cammini: '#e3c45d', "Educazione all'aperto": '#01aa9f', Eventi: '#ffc0cb',
+  Formazione: '#002f59', 'Immersi nel verde': '#358756', 'Luoghi dello spirito': '#c8a3c9',
+  Novità: '#75c43c', Speciali: '#b8163c', 'Tra mare e cielo': '#7aaecd',
+  'Trek urbano': '#f39452', 'Tracce sulla neve': '#a8cce0', 'Cielo stellato': '#1e2855',
 };
 
 function getFilosofiaOpacity(color: string): string {
@@ -82,59 +131,34 @@ function getFilosofiaOpacity(color: string): string {
 function FilosofiaBadge({ value }: { value: string | null | undefined }) {
   if (!value || !FILOSOFIA_COLORS[value]) return null;
   const color = FILOSOFIA_COLORS[value];
-  const bg = getFilosofiaOpacity(color);
   return (
-    <View
-      className="absolute top-3 right-3 px-3 py-1.5 rounded-full"
-      style={{
-        backgroundColor: bg,
-        shadowColor: color,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 5,
-      }}
-    >
-      <Text
-        className="text-[9px] font-black uppercase tracking-widest"
-        style={{ color: 'rgba(255,255,255,0.95)' }}
-      >
-        {value}
-      </Text>
+    <View style={[s.badge, { backgroundColor: getFilosofiaOpacity(color), shadowColor: color }]}>
+      <Text style={s.badgeText}>{value}</Text>
     </View>
   );
 }
 
-function formatMarkdown(text: string | null): string {
+function stripMarkdown(text: string | null): string {
   if (!text) return '';
   return text
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/__(.*?)__/g, '<strong>$1</strong>')
-    .replace(/_(.*?)_/g, '<em>$1</em>');
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/__(.*?)__/g, '$1')
+    .replace(/_(.*?)_/g, '$1');
 }
 
 const PRESET_VOUCHERS = [
-  { amount: 10, tag: null, highlight: false },
-  { amount: 20, tag: null, highlight: false },
-  { amount: 60, tag: 'Top', highlight: true },
-  { amount: 100, tag: null, highlight: false },
-  { amount: 200, tag: 'Premium', highlight: false },
-  { amount: 300, tag: null, highlight: false },
+  { amount: 10, tag: null, highlight: false }, { amount: 20, tag: null, highlight: false },
+  { amount: 60, tag: 'Top', highlight: true }, { amount: 100, tag: null, highlight: false },
+  { amount: 200, tag: 'Premium', highlight: false }, { amount: 300, tag: null, highlight: false },
 ];
 
-// Skeleton Card per il caricamento
 const SkeletonCard = () => (
-  <View className="bg-white rounded-2xl overflow-hidden border border-stone-100">
-    <View className="aspect-[3/2] bg-stone-100" />
-    <View className="p-4 gap-2.5">
-      <View className="h-2 w-20 bg-stone-100 rounded" />
-      <View className="h-4 w-3/4 bg-stone-200 rounded" />
-      <View className="h-3 w-full bg-stone-50 rounded" />
-      <View className="flex-row gap-2 mt-1">
-        <View className="h-10 flex-1 bg-stone-100 rounded-xl" />
-        <View className="h-10 flex-[1.5] bg-stone-100 rounded-xl" />
-      </View>
+  <View style={s.skeletonCard}>
+    <View style={{ height: 160, backgroundColor: '#e7e5e4' }} />
+    <View style={{ padding: 16, gap: 10 }}>
+      <View style={{ width: 80, height: 8, backgroundColor: '#f5f5f4', borderRadius: 4 }} />
+      <View style={{ width: '75%', height: 16, backgroundColor: '#e7e5e4', borderRadius: 4 }} />
     </View>
   </View>
 );
@@ -143,44 +167,25 @@ const SkeletonCard = () => (
 export default function Home({ onBookingClick }: HomeProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-
   const [featuredActivities, setFeaturedActivities] = useState<FeaturedActivity[]>([]);
   const [courses, setCourses] = useState<Corso[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedActivity, setSelectedActivity] = useState<any | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [bgAnimDone, setBgAnimDone] = useState(false);
-
-  // Determina se il dispositivo è un tablet (larghezza >= 768)
-  const isTablet = width >= 768;
-  const isMobile = !isTablet;
 
   useEffect(() => {
     async function loadData() {
       setLoading(true);
       try {
         const [{ data: allHikes }, { data: allCampi }, { data: crs }] = await Promise.all([
-          supabase
-            .from('escursioni')
-            .select('*')
-            .eq('is_active', true)
-            .order('data', { ascending: true }),
-          supabase
-            .from('campi')
-            .select('id, titolo, descrizione, immagine_url, prezzo, durata, slug'),
+          supabase.from('escursioni').select('*').eq('is_active', true).order('data', { ascending: true }),
+          supabase.from('campi').select('id, titolo, descrizione, immagine_url, prezzo, durata, slug'),
           supabase.from('corsi').select('*').order('posizione', { ascending: true }),
         ]);
-
-        const hikes = ((allHikes ?? []) as any[]).map(e => ({
-          ...e,
-          _tipo: 'escursione' as const,
-        }));
-        const campi = ((allCampi ?? []) as any[]).map(c => ({
-          ...c,
-          _tipo: 'campo' as const,
-        }));
+        const hikes = ((allHikes ?? []) as any[]).map(e => ({ ...e, _tipo: 'escursione' as const }));
+        const campi = ((allCampi ?? []) as any[]).map(c => ({ ...c, _tipo: 'campo' as const }));
         const mixed = [...hikes, ...campi].sort(() => Math.random() - 0.5);
-        setFeaturedActivities(mixed.slice(0, isMobile ? 2 : 3));
+        setFeaturedActivities(mixed.slice(0, isTablet ? 3 : 2));
         if (crs) setCourses(crs as unknown as Corso[]);
       } catch (e) {
         console.error(e);
@@ -188,7 +193,7 @@ export default function Home({ onBookingClick }: HomeProps) {
       setLoading(false);
     }
     loadData();
-  }, [isMobile]);
+  }, []);
 
   const openDetails = useCallback((activity: any) => {
     setSelectedActivity(activity);
@@ -196,419 +201,239 @@ export default function Home({ onBookingClick }: HomeProps) {
   }, []);
 
   const handleBooking = (title: string, mode?: 'info' | 'prenota') => {
-    if (onBookingClick) {
-      onBookingClick(title, mode);
-    } else {
-      // Fallback: apri WhatsApp con messaggio precompilato
-      Linking.openURL(`https://wa.me/393281613762?text=Info su ${title}`);
-    }
+    if (onBookingClick) onBookingClick(title, mode);
+    else Linking.openURL(`https://wa.me/393281613762?text=Info su ${title}`);
   };
 
-  const navigateTo = (page: string) => {
-    switch (page) {
-      case 'attivitapage':
-        router.push('/attivita');
-        break;
-      case 'corsi':
-        router.push('/corsi');
-        break;
-      default:
-        router.push('/');
-    }
+  const nav = (page: string) => {
+    if (page === 'attivita') router.push('/attivita');
+    else if (page === 'corsi') router.push('/corsi');
   };
 
   if (loading) {
     return (
-      <View className="flex-1 bg-[#f5f2ed]">
-        <View className="h-[80vh] md:h-screen bg-stone-200" />
-        <View className="max-w-6xl mx-auto px-4 py-12 md:py-20">
-          <View className="flex-row flex-wrap gap-6 md:gap-8">
-            {[1, 2, 3].map(n => (
-              <View key={n} className="w-full md:w-1/2 lg:w-1/3">
-                <SkeletonCard />
-              </View>
-            ))}
-          </View>
+      <View style={s.container}>
+        <View style={{ height: height * 0.5, backgroundColor: '#d4d0cb' }} />
+        <View style={{ padding: 16, gap: 16 }}>
+          <SkeletonCard />
+          <SkeletonCard />
         </View>
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-[#f5f2ed]">
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* --- HERO --- */}
-        <Section animate={false} fullHeight as={View} className="items-center justify-center">
-          {/* Sfondo animato */}
-          <Animated.View
-            className="absolute inset-0"
-            entering={FadeIn.duration(1800).withInitialValues({ transform: [{ scale: 1.08 }] })}
-            onLayout={() => setBgAnimDone(true)}
-          >
-            <Image
-              source={{
-                uri: 'https://rpzbiqzjyculxquespos.supabase.co/storage/v1/object/public/Images/IMG_20220904_150458.webp',
-              }}
-              className="absolute inset-0 w-full h-full"
-              resizeMode="cover"
-            />
-          </Animated.View>
-
-          <View className="absolute inset-0 bg-black/30" />
-          <View className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#f5f2ed]" />
-
-          <View className="relative z-10 px-4 items-center">
-            <Animated.View entering={FadeInDown.delay(500).duration(650)} className="mb-3">
-              <Text className="text-6xl md:text-7xl font-black text-white uppercase tracking-tighter leading-none text-center">
-                Altour
-              </Text>
-              <Text className="text-sm md:text-xl font-bold uppercase tracking-[0.4em] text-white/75 mt-2 text-center">
-                Italy
-              </Text>
-            </Animated.View>
-
-            <Animated.Text
-              entering={FadeInUp.delay(700).duration(600)}
-              className="text-white/65 text-sm md:text-base font-medium text-center mb-8"
-            >
-              Formazione ed attività outdoor
-            </Animated.Text>
-
-            <Animated.View
-              entering={FadeInUp.delay(900).duration(600)}
-              className="flex-col sm:flex-row gap-3 w-full max-w-sm mb-10 md:mb-12"
-            >
-              <TouchableOpacity
-                onPress={() => navigateTo('attivitapage')}
-                className="flex-1 flex-row items-center justify-center gap-2 bg-white/12 py-4 px-5 rounded-2xl border border-white/25"
-              >
-                <Text className="text-white font-black uppercase text-[10px] tracking-widest">
-                  Esplora Attività
-                </Text>
+    <View style={s.container}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
+        {/* HERO */}
+        <View style={s.heroContainer}>
+          <Image
+            source={{ uri: 'https://rpzbiqzjyculxquespos.supabase.co/storage/v1/object/public/Images/IMG_20220904_150458.webp' }}
+            style={s.heroImage}
+            resizeMode="cover"
+          />
+          <View style={s.heroOverlay} />
+          <View style={[s.heroContent, { paddingBottom: insets.bottom + 48 }]}>
+            <Text style={s.heroTitle}>Altour</Text>
+            <Text style={s.heroSub}>Italy</Text>
+            <Text style={s.heroTagline}>Formazione ed attività outdoor</Text>
+            <View style={s.heroBtnRow}>
+              <TouchableOpacity onPress={() => nav('attivita')} style={s.heroBtn}>
+                <Text style={s.heroBtnTxt}>Esplora Attività</Text>
                 <ArrowRight size={12} color="white" />
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => navigateTo('corsi')}
-                className="flex-1 flex-row items-center justify-center gap-2 bg-white/12 py-4 px-5 rounded-2xl border border-white/25"
-              >
-                <Text className="text-white font-black uppercase text-[10px] tracking-widest">
-                  Vai all'Accademia
-                </Text>
+              <TouchableOpacity onPress={() => nav('corsi')} style={s.heroBtn}>
+                <Text style={s.heroBtnTxt}>Vai all'Accademia</Text>
                 <ArrowRight size={12} color="white" />
               </TouchableOpacity>
-            </Animated.View>
-
-            <Animated.View
-              entering={FadeInUp.delay(1100).duration(600)}
-              className="bg-white/15 py-4 px-4 md:px-8 rounded-[1.5rem] md:rounded-full border border-white/20 w-full max-w-md"
-            >
-              <View className="flex-row justify-around">
-                {[
-                  { value: '10 anni', label: 'Esperienza', icon: <TrendingUp size={13} color="#0ea5e9" /> },
-                  { value: 'AIGAE', label: 'Guide', icon: <Shield size={13} color="#0ea5e9" /> },
-                  { value: '800+', label: 'Tesserati', icon: <Users size={13} color="#0ea5e9" /> },
-                ].map((stat, i) => (
-                  <View key={i} className="items-center">
-                    <View className="md:hidden mb-1">{stat.icon}</View>
-                    <Text className="text-sm md:text-xl font-black text-white">{stat.value}</Text>
-                    <Text className="text-[9px] uppercase tracking-wider text-white/50 font-bold mt-1">
-                      {stat.label}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </Animated.View>
+            </View>
+            <View style={s.statsBox}>
+              {[
+                { v: '10 anni', l: 'Esperienza', I: TrendingUp },
+                { v: 'AIGAE', l: 'Guide', I: Shield },
+                { v: '800+', l: 'Tesserati', I: Users },
+              ].map((stat, i) => (
+                <View key={i} style={s.statItem}>
+                  <stat.I size={14} color={SKY} />
+                  <Text style={s.statValue}>{stat.v}</Text>
+                  <Text style={s.statLabel}>{stat.l}</Text>
+                </View>
+              ))}
+            </View>
           </View>
-        </Section>
+        </View>
 
-        {/* --- ACCADEMIA --- */}
-        <Section className="max-w-6xl mx-auto px-4 py-16 md:py-24">
-          <View className="flex-col md:flex-row md:items-end justify-between gap-6 mb-12 md:mb-16">
+        {/* ACCADEMIA */}
+        <View style={s.section}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 24 }}>
             <View>
-              <View className="flex-row items-center gap-3 mb-4">
-                <View className="h-1 w-8 bg-brand-sky rounded-full" />
-                <Text className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-sky">
-                  Accademia Altour
-                </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <View style={s.accent} />
+                <Text style={[s.tag, { color: SKY }]}>Accademia Altour</Text>
               </View>
-              <Text className="text-4xl md:text-5xl font-black text-brand-stone uppercase tracking-tighter leading-[0.9]">
+              <Text style={s.heading}>
                 Formazione{'\n'}
-                <Text className="text-brand-sky italic font-light tracking-normal">
-                  Professionale.
-                </Text>
+                <Text style={s.headingItalic}>Professionale.</Text>
               </Text>
             </View>
-            <TouchableOpacity
-              onPress={() => navigateTo('corsi')}
-              className="flex-row items-center gap-3"
-            >
-              <Text className="text-[10px] font-black uppercase tracking-widest text-stone-400">
-                Vedi tutto
-              </Text>
-              <View className="w-10 h-10 rounded-full border border-stone-200 items-center justify-center">
-                <ArrowRight size={16} color="#0ea5e9" />
+            <TouchableOpacity onPress={() => nav('corsi')} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 12 }}>
+              <Text style={s.seeAll}>Vedi tutto</Text>
+              <View style={s.seeAllCircle}>
+                <ArrowRight size={16} color={SKY} />
               </View>
             </TouchableOpacity>
           </View>
-          <View className="flex-row flex-wrap gap-8">
-            {courses.slice(0, 3).map((corso, index) => (
-              <View
-                key={corso.id}
-                className={`${index > 0 ? 'hidden md:block' : 'block'} w-full md:w-1/2 lg:w-1/3`}
-              >
-                <CourseCard
-                  corso={corso}
-                  onBookingClick={handleBooking}
-                  openDetails={openDetails}
-                />
+          <View style={{ gap: 20 }}>
+            {courses.slice(0, isTablet ? 3 : 1).map(corso => (
+              <View key={corso.id} style={!isTablet ? { width: '100%' } : { width: '31%' }}>
+                <CourseCard corso={corso} onBookingClick={handleBooking} openDetails={openDetails} />
               </View>
             ))}
           </View>
-        </Section>
+        </View>
 
-        {/* --- VOUCHER --- */}
-        <Section className="max-w-4xl mx-auto px-4 py-12 md:py-20" delay={0.05}>
-          <View className="bg-white rounded-[2.5rem] overflow-hidden border border-stone-50 shadow-2xl">
-            <View className="flex-col md:flex-row min-h-[360px]">
-              <View className="w-full md:w-2/5 h-48 md:h-auto relative">
-                <Image
-                  source={{
-                    uri: 'https://rpzbiqzjyculxquespos.supabase.co/storage/v1/object/public/Images/IMG_20241231_144800.webp',
-                  }}
-                  className="absolute inset-0 w-full h-full"
-                  resizeMode="cover"
-                />
-                <View className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-brand-stone/70 to-transparent" />
-                <View className="absolute bottom-6 left-8 z-10">
-                  <View className="flex-row items-center gap-2 mb-2">
-                    <Star size={14} color="#0ea5e9" fill="#0ea5e9" />
-                    <Text className="text-[9px] font-black uppercase tracking-[0.3em] text-white">
-                      Gift Experience
-                    </Text>
-                  </View>
-                  <Text className="text-2xl font-black uppercase leading-none tracking-tighter italic text-white">
-                    Regala un'{'\n'}avventura.
-                  </Text>
+        {/* VOUCHER */}
+        <View style={[s.section, { paddingTop: 0 }]}>
+          <View style={s.card}>
+            <View style={s.cardImg}>
+              <Image
+                source={{ uri: 'https://rpzbiqzjyculxquespos.supabase.co/storage/v1/object/public/Images/IMG_20241231_144800.webp' }}
+                style={StyleSheet.absoluteFillObject}
+                resizeMode="cover"
+              />
+              <View style={s.cardImgOverlay} />
+              <View style={s.cardImgContent}>
+                <View style={s.cardImgTagRow}>
+                  <Star size={14} color={SKY} fill={SKY} />
+                  <Text style={s.cardImgTag}>Gift Experience</Text>
                 </View>
+                <Text style={s.cardImgTitle}>{"Regala un'\navventura."}</Text>
               </View>
-              <View className="w-full md:w-3/5 p-8 md:p-14 justify-center bg-[#faf9f7]">
-                <Text className="text-stone-500 text-sm font-medium leading-relaxed mb-6">
-                  Un'emozione da regalare a chi ami — utilizzabile per ogni tipo di esperienza
-                  Altour.
-                </Text>
-                <Text className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-4">
-                  Scegli l'importo
-                </Text>
-                <View className="flex-row flex-wrap gap-2.5 mb-5">
-                  {PRESET_VOUCHERS.map(({ amount, tag, highlight }) => (
-                    <TouchableOpacity
-                      key={amount}
-                      onPress={() => handleBooking(`Voucher Regalo da ${amount}€`)}
-                      className={`flex-1 min-w-[90px] items-center justify-center py-4 rounded-xl border-2 ${
-                        highlight
-                          ? 'border-brand-sky bg-brand-sky'
-                          : 'border-stone-200 bg-white'
-                      }`}
-                    >
-                      <Text
-                        className={`text-base font-black ${
-                          highlight ? 'text-white' : 'text-brand-stone'
-                        }`}
-                      >
-                        {amount}€
-                      </Text>
-                      {tag && (
-                        <Text
-                          className={`text-[7px] font-black uppercase tracking-wider mt-1 ${
-                            highlight ? 'text-white/75' : 'text-stone-400'
-                          }`}
-                        >
-                          {tag}
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                <View className="flex-row items-center gap-3 mb-4">
-                  <View className="flex-1 h-px bg-stone-200" />
-                  <Text className="text-[8px] font-black uppercase tracking-widest text-stone-300">
-                    oppure
-                  </Text>
-                  <View className="flex-1 h-px bg-stone-200" />
-                </View>
-                <TouchableOpacity
-                  onPress={() => handleBooking('Richiesta Gift Voucher Personalizzato')}
-                  className="w-full bg-brand-stone py-4 rounded-xl flex-row items-center justify-center gap-2"
-                >
-                  <Gift size={12} color="white" />
-                  <Text className="text-white font-black uppercase text-[9px] tracking-widest">
-                    Importo personalizzato
-                  </Text>
-                </TouchableOpacity>
+            </View>
+            <View style={s.cardBody}>
+              <Text style={s.cardDesc}>
+                Un'emozione da regalare a chi ami — utilizzabile per ogni tipo di esperienza Altour.
+              </Text>
+              <Text style={[s.tag, { color: '#a8a29e', marginBottom: 12 }]}>Scegli l'importo</Text>
+              <View style={s.voucherRow}>
+                {PRESET_VOUCHERS.map(({ amount, tag, highlight }) => (
+                  <TouchableOpacity
+                    key={amount}
+                    onPress={() => handleBooking(`Voucher Regalo da ${amount}€`)}
+                    style={[
+                      s.voucherBtn,
+                      highlight ? { backgroundColor: SKY, borderColor: SKY } : { backgroundColor: '#fff', borderColor: '#e7e5e4' },
+                    ]}
+                  >
+                    <Text style={[s.voucherBtnTxt, { color: highlight ? 'white' : STONE }]}>{amount}€</Text>
+                    {tag && (
+                      <Text style={[s.voucherBtnTag, { color: highlight ? 'rgba(255,255,255,0.75)' : '#a8a29e' }]}>{tag}</Text>
+                    )}
+                  </TouchableOpacity>
+                ))}
               </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <View style={{ flex: 1, height: 1, backgroundColor: '#e7e5e4' }} />
+                <Text style={{ fontSize: 8, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 2, color: '#d4d0cb' }}>oppure</Text>
+                <View style={{ flex: 1, height: 1, backgroundColor: '#e7e5e4' }} />
+              </View>
+              <TouchableOpacity onPress={() => handleBooking('Richiesta Gift Voucher Personalizzato')} style={s.primaryBtn}>
+                <Gift size={13} color="white" />
+                <Text style={s.primaryBtnTxt}>Importo personalizzato</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </Section>
+        </View>
 
-        {/* --- ATTIVITÀ IN EVIDENZA --- */}
-        <Section className="max-w-6xl mx-auto px-4 py-20 md:py-32">
-          <View className="flex-col md:flex-row md:items-end justify-between gap-6 mb-12 md:mb-16">
+        {/* ATTIVITÀ IN EVIDENZA */}
+        <View style={s.section}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 24 }}>
             <View>
-              <View className="flex-row items-center gap-3 mb-4">
-                <View className="h-1 w-8 bg-brand-sky rounded-full" />
-                <Text className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-sky">
-                  Attività Outdoor
-                </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <View style={s.accent} />
+                <Text style={[s.tag, { color: SKY }]}>Attività Outdoor</Text>
               </View>
-              <Text className="text-4xl md:text-5xl font-black text-brand-stone uppercase tracking-tighter leading-[0.9]">
+              <Text style={s.heading}>
                 Prossime{'\n'}
-                <Text className="text-brand-sky italic font-light tracking-normal">
-                  Avventure.
-                </Text>
+                <Text style={s.headingItalic}>Avventure.</Text>
               </Text>
             </View>
-            <TouchableOpacity
-              onPress={() => navigateTo('attivitapage')}
-              className="flex-row items-center gap-3"
-            >
-              <Text className="text-[10px] font-black uppercase tracking-widest text-stone-400">
-                Vedi tutte le attività
-              </Text>
-              <View className="w-10 h-10 rounded-full border border-stone-200 items-center justify-center">
-                <ArrowRight size={16} color="#0ea5e9" />
+            <TouchableOpacity onPress={() => nav('attivita')} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 12 }}>
+              <Text style={s.seeAll}>Vedi tutte le attività</Text>
+              <View style={s.seeAllCircle}>
+                <ArrowRight size={16} color={SKY} />
               </View>
             </TouchableOpacity>
           </View>
-          <View className="flex-row flex-wrap gap-8">
+          <View style={{ gap: 20 }}>
             {featuredActivities.map(activity => {
-              const isEscursione = activity._tipo === 'escursione';
+              const isEsc = activity._tipo === 'escursione';
               return (
-                <View key={activity.id} className="w-full md:w-1/2 lg:w-1/3">
-                  <View className="bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-xl shadow-stone-200/50 overflow-hidden border border-stone-100 flex-1">
-                    <View className="aspect-[16/9] md:h-56 bg-stone-200 relative">
-                      {activity.immagine_url && (
-                        <Image
-                          source={{ uri: activity.immagine_url }}
-                          className="absolute inset-0 w-full h-full"
-                          resizeMode="cover"
-                        />
-                      )}
-                      <View className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
-                      {isEscursione && (
-                        <FilosofiaBadge value={(activity as Escursione).filosofia} />
-                      )}
-                      {!isEscursione && (activity as Campo).slug && (
-                        <FilosofiaBadge value={(activity as Campo).slug} />
-                      )}
+                <View key={activity.id} style={s.actCard}>
+                  <View style={s.actImg}>
+                    {activity.immagine_url && (
+                      <Image source={{ uri: activity.immagine_url }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+                    )}
+                    <View style={s.actImgOverlay} />
+                    <FilosofiaBadge value={isEsc ? activity.filosofia : activity.slug} />
+                  </View>
+                  <View style={s.actBody}>
+                    <View style={s.actMeta}>
+                      <Clock size={12} color={SKY} />
+                      <Text style={s.actMetaTxt}>{activity.durata || (isEsc ? 'Giornata intera' : 'Campo')}</Text>
                     </View>
-                    <View className="p-5 md:p-7 flex-1">
-                      <View className="flex-row items-center gap-3 mb-3">
-                        {isEscursione ? (
-                          <>
-                            <View className="w-1 h-1 rounded-full bg-stone-200" />
-                            <View className="flex-row items-center gap-1.5">
-                              <Clock size={12} color="#0ea5e9" />
-                              <Text className="text-[10px] font-bold text-brand-sky uppercase tracking-wider">
-                                {activity.durata || 'Giornata intera'}
-                              </Text>
-                            </View>
-                          </>
-                        ) : (
-                          <View className="flex-row items-center gap-1.5">
-                            <Clock size={12} color="#0ea5e9" />
-                            <Text className="text-[10px] font-bold text-brand-sky uppercase tracking-wider">
-                              {activity.durata || 'Campo'}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text className="text-lg md:text-xl font-black text-brand-stone uppercase leading-tight mb-3">
-                        {activity.titolo}
-                      </Text>
-                      <Text className="text-stone-500 text-xs md:text-sm mb-6 flex-1" numberOfLines={3}>
-                        {formatMarkdown(activity.descrizione).replace(/<[^>]*>/g, '')}
-                      </Text>
-                      <View className="flex-row gap-3 pt-5 border-t border-stone-100">
-                        <TouchableOpacity
-                          onPress={() => openDetails(activity)}
-                          className="flex-1 py-3 rounded-xl border-2 border-stone-200 items-center"
-                        >
-                          <Text className="font-black uppercase text-[9px] tracking-widest text-stone-600">
-                            Dettagli
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={() => handleBooking(activity.titolo, 'info')}
-                          className="flex-[1.5] py-3 rounded-xl bg-brand-sky items-center"
-                        >
-                          <Text className="font-black uppercase text-[9px] tracking-widest text-white">
-                            Richiedi Info
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
+                    <Text style={s.actTitle} numberOfLines={2}>{activity.titolo}</Text>
+                    <Text style={s.actDesc} numberOfLines={3}>{stripMarkdown(activity.descrizione)}</Text>
+                    <View style={s.actBtnRow}>
+                      <TouchableOpacity onPress={() => openDetails(activity)} style={s.outlineBtn}>
+                        <Text style={s.outlineBtnTxt}>Dettagli</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => handleBooking(activity.titolo, 'info')} style={s.fillBtn}>
+                        <Text style={s.fillBtnTxt}>Richiedi Info</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
                 </View>
               );
             })}
           </View>
-        </Section>
+        </View>
 
-        {/* --- TAILOR-MADE --- */}
-        <Section className="max-w-4xl mx-auto px-4 py-8" delay={0.05}>
-          <View className="bg-white rounded-[2.5rem] overflow-hidden border border-stone-50 shadow-2xl">
-            <View className="flex-col md:flex-row min-h-[280px]">
-              <View className="w-full md:w-2/5 h-48 md:h-auto relative">
-                <Image
-                  source={{
-                    uri: 'https://rpzbiqzjyculxquespos.supabase.co/storage/v1/object/public/Images/Box_avventura.webp',
-                  }}
-                  className="absolute inset-0 w-full h-full"
-                  resizeMode="cover"
-                />
-                <View className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-brand-stone/70 to-transparent" />
-                <View className="absolute bottom-6 left-8 z-10">
-                  <View className="flex-row items-center gap-2 mb-2">
-                    <TrendingUp size={14} color="#0ea5e9" />
-                    <Text className="text-[9px] font-black uppercase tracking-[0.3em] text-white">
-                      Progetti Personalizzati
-                    </Text>
-                  </View>
-                  <Text className="text-2xl font-black uppercase leading-none tracking-tighter italic text-white">
-                    Su misura,{'\n'}per te.
-                  </Text>
+        {/* TAILOR-MADE */}
+        <View style={[s.section, { paddingTop: 0, paddingBottom: 48 }]}>
+          <View style={s.card}>
+            <View style={s.cardImg}>
+              <Image
+                source={{ uri: 'https://rpzbiqzjyculxquespos.supabase.co/storage/v1/object/public/Images/Box_avventura.webp' }}
+                style={StyleSheet.absoluteFillObject}
+                resizeMode="cover"
+              />
+              <View style={s.cardImgOverlay} />
+              <View style={s.cardImgContent}>
+                <View style={s.cardImgTagRow}>
+                  <TrendingUp size={14} color={SKY} />
+                  <Text style={s.cardImgTag}>Progetti Personalizzati</Text>
                 </View>
-              </View>
-              <View className="w-full md:w-3/5 p-10 md:p-14 justify-center bg-[#faf9f7]">
-                <Text className="text-[9px] font-black uppercase tracking-[0.3em] text-brand-sky mb-3">
-                  Progetti Personalizzati
-                </Text>
-                <Text className="text-2xl md:text-3xl font-black text-brand-stone uppercase tracking-tighter leading-none mb-3">
-                  Avventura{' '}
-                  <Text className="text-brand-sky italic font-light tracking-normal">
-                    su misura.
-                  </Text>
-                </Text>
-                <Text className="text-stone-500 text-sm font-medium leading-relaxed mb-8">
-                  Hai un'idea specifica? Progettiamo tour privati e team building tracciando la
-                  rotta insieme a te.
-                </Text>
-                <TouchableOpacity
-                  onPress={() => handleBooking('Esperienza su Misura', 'info')}
-                  className="w-full md:w-auto bg-brand-stone px-8 py-4 rounded-xl flex-row items-center justify-center gap-3"
-                >
-                  <Text className="text-white font-black uppercase text-[10px] tracking-widest">
-                    Contattaci
-                  </Text>
-                  <Send size={14} color="white" />
-                </TouchableOpacity>
+                <Text style={s.cardImgTitle}>{'Su misura,\nper te.'}</Text>
               </View>
             </View>
+            <View style={s.cardBody}>
+              <Text style={[s.tag, { color: SKY, marginBottom: 8 }]}>Progetti Personalizzati</Text>
+              <Text style={s.heading}>
+                Avventura <Text style={s.headingItalic}>su misura.</Text>
+              </Text>
+              <Text style={[s.cardDesc, { marginTop: 8, marginBottom: 24 }]}>
+                Hai un'idea specifica? Progettiamo tour privati e team building tracciando la rotta insieme a te.
+              </Text>
+              <TouchableOpacity onPress={() => handleBooking('Esperienza su Misura', 'info')} style={s.primaryBtn}>
+                <Text style={s.primaryBtnTxt}>Contattaci</Text>
+                <Send size={14} color="white" />
+              </TouchableOpacity>
+            </View>
           </View>
-        </Section>
+        </View>
       </ScrollView>
 
-      {/* --- Modale Dettaglio --- */}
       {selectedActivity && (
         <ActivityDetailModal
           activity={selectedActivity}
@@ -618,30 +443,14 @@ export default function Home({ onBookingClick }: HomeProps) {
         />
       )}
 
-     {/* --- WhatsApp FAB --- */}
-<Animated.View
-  entering={FadeIn.delay(600).springify()}
-  className={`absolute bottom-6 right-6 z-50 ${isDetailOpen ? 'opacity-0' : 'opacity-100'}`}
->
-  <TouchableOpacity
-    onPress={() => Linking.openURL('https://wa.me/393281613762')}
-    className="w-14 h-14 rounded-full items-center justify-center overflow-hidden"
-    style={{
-      backgroundColor: '#25D366',
-      shadowColor: '#25D366',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.4,
-      shadowRadius: 8,
-      elevation: 8,
-    }}
-  >
-    <Image
-      source={require('../../assets/whatsapp-icon.webp')}
-      className="w-8 h-8"
-      resizeMode="contain"
-    />
-  </TouchableOpacity>
-</Animated.View>
+      {!isDetailOpen && (
+        <TouchableOpacity
+          onPress={() => Linking.openURL('https://wa.me/393281613762')}
+          style={[s.fab, { bottom: insets.bottom + 16 }]}
+        >
+          <Send size={22} color="white" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
