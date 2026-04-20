@@ -618,30 +618,30 @@ export default function Home({ onBookingClick }: HomeProps) {
         />
       )}
 
-      {/* --- WhatsApp FAB --- */}
-      <Animated.View
-        entering={FadeIn.delay(600).springify()}
-        className={`absolute bottom-6 right-6 z-50 ${isDetailOpen ? 'opacity-0' : 'opacity-100'}`}
-      >
-        <TouchableOpacity
-          onPress={() => Linking.openURL('https://wa.me/393281613762')}
-          className="w-14 h-14 rounded-full items-center justify-center"
-          style={{
-            backgroundColor: '#25D366',
-            shadowColor: '#25D366',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.4,
-            shadowRadius: 8,
-            elevation: 8,
-          }}
-        >
-          <Image
-            source={require('../../assets/whatsapp-icon.png')} // Assicurati di avere l'icona
-            className="w-6 h-6"
-            resizeMode="contain"
-          />
-        </TouchableOpacity>
-      </Animated.View>
+     {/* --- WhatsApp FAB --- */}
+<Animated.View
+  entering={FadeIn.delay(600).springify()}
+  className={`absolute bottom-6 right-6 z-50 ${isDetailOpen ? 'opacity-0' : 'opacity-100'}`}
+>
+  <TouchableOpacity
+    onPress={() => Linking.openURL('https://wa.me/393281613762')}
+    className="w-14 h-14 rounded-full items-center justify-center overflow-hidden"
+    style={{
+      backgroundColor: '#25D366',
+      shadowColor: '#25D366',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.4,
+      shadowRadius: 8,
+      elevation: 8,
+    }}
+  >
+    <Image
+      source={require('../../assets/whatsapp-icon.webp')}
+      className="w-8 h-8"
+      resizeMode="contain"
+    />
+  </TouchableOpacity>
+</Animated.View>
     </View>
   );
 }
