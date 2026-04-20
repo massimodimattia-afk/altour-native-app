@@ -1,22 +1,14 @@
-// components/Header.tsx
+// components/Header.tsx - VERSIONE STABILE (SENZA REANIMATED)
 import React, { useState } from 'react';
 import {
   View,
   Text,
   Image,
   TouchableOpacity,
-  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, usePathname } from 'expo-router';
 import { Menu, X } from 'lucide-react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  FadeIn,
-  FadeOut,
-} from 'react-native-reanimated';
 
 // Mappa delle rotte per la navigazione
 const navItems = [
@@ -42,33 +34,12 @@ export default function Header() {
   };
   const currentPage = getCurrentPageId();
 
- // components/Header.tsx (parte modificata)
-const handleNavigate = (route: string) => {
-  setIsMenuOpen(false);
-  router.push(route as any);
-};
+  const handleNavigate = (route: string) => {
+    setIsMenuOpen(false);
+    router.push(route as any);
+  };
 
   const toggleMenu = () => setIsMenuOpen(prev => !prev);
-
-  // Animazione del menu mobile
-  const menuHeight = useSharedValue(0);
-  const menuOpacity = useSharedValue(0);
-
-  React.useEffect(() => {
-    if (isMenuOpen) {
-      menuHeight.value = withTiming(280, { duration: 300 });
-      menuOpacity.value = withTiming(1, { duration: 300 });
-    } else {
-      menuHeight.value = withTiming(0, { duration: 300 });
-      menuOpacity.value = withTiming(0, { duration: 300 });
-    }
-  }, [isMenuOpen]);
-
-  const animatedMenuStyle = useAnimatedStyle(() => ({
-    maxHeight: menuHeight.value,
-    opacity: menuOpacity.value,
-    overflow: 'hidden',
-  }));
 
   return (
     <View
@@ -132,16 +103,13 @@ const handleNavigate = (route: string) => {
         </TouchableOpacity>
       </View>
 
-      {/* Menu Mobile */}
-      <Animated.View style={animatedMenuStyle} className="bg-[#2a2723] border-t border-white/5">
-        <View className="p-6 gap-5">
-          {navItems.map((item, index) => (
-            <Animated.View
-              key={item.id}
-              entering={isMenuOpen ? FadeIn.delay(index * 75).duration(300) : undefined}
-              exiting={FadeOut.duration(200)}
-            >
+      {/* Menu Mobile - senza animazioni Reanimated */}
+      {isMenuOpen && (
+        <View className="bg-[#2a2723] border-t border-white/5">
+          <View className="p-6 gap-5">
+            {navItems.map(item => (
               <TouchableOpacity
+                key={item.id}
                 onPress={() => handleNavigate(item.route)}
                 className="py-2"
               >
@@ -153,10 +121,10 @@ const handleNavigate = (route: string) => {
                   {item.label}
                 </Text>
               </TouchableOpacity>
-            </Animated.View>
-          ))}
+            ))}
+          </View>
         </View>
-      </Animated.View>
+      )}
     </View>
   );
 }

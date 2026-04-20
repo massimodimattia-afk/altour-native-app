@@ -1,16 +1,8 @@
 // components/CourseCard.tsx
 import React, { useState } from 'react';
-import { View, Text, Image, TouchableOpacity } from 'react-native';
-import Animated, { FadeInUp } from 'react-native-reanimated';
-import {
-  Sparkles,
-  BookOpen,
-  Mountain,
-  ArrowRight,
-  Clock,
-} from 'lucide-react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { Sparkles, BookOpen, Mountain, ArrowRight, Clock } from 'lucide-react-native';
 
-// --- Tipi (invariati) ---
 export interface Corso {
   id: string;
   titolo: string;
@@ -33,159 +25,124 @@ interface CourseCardProps {
   openDetails: (activity: any) => void;
 }
 
-// --- Costanti (invariate) ---
 const CATEGORIA_COLORS: Record<string, string> = {
-  Avventura: '#e94544',
-  Benessere: '#a5d9c9',
-  'Borghi più belli': '#946a52',
-  Cammini: '#e3c45d',
-  "Educazione all'aperto": '#01aa9f',
-  Eventi: '#ffc0cb',
-  Formazione: '#002f59',
-  'Immersi nel verde': '#358756',
-  'Luoghi dello spirito': '#c8a3c9',
-  Novità: '#75c43c',
-  Speciali: '#b8163c',
-  'Tra mare e cielo': '#7aaecd',
-  'Trek urbano': '#f39452',
-  'Tracce sulla neve': '#a8cce0',
-  'Cielo stellato': '#1e2855',
+  Avventura: '#e94544', Benessere: '#a5d9c9', 'Borghi più belli': '#946a52',
+  Cammini: '#e3c45d', "Educazione all'aperto": '#01aa9f', Eventi: '#ffc0cb',
+  Formazione: '#002f59', 'Immersi nel verde': '#358756', 'Luoghi dello spirito': '#c8a3c9',
+  Novità: '#75c43c', Speciali: '#b8163c', 'Tra mare e cielo': '#7aaecd',
+  'Trek urbano': '#f39452', 'Tracce sulla neve': '#a8cce0', 'Cielo stellato': '#1e2855',
 };
 
-function getCategoriaOpacity(color: string): string {
+function categoriaColor(color: string) {
   const dark = ['#002f59', '#946a52', '#b8163c', '#358756', '#1e2855'];
   return dark.includes(color) ? `${color}aa` : `${color}cc`;
 }
 
 const IMG_FALLBACK = require('../assets/altour-logo.png');
 
-// Utility per formattare la data
 const formatDate = (dateStr: string | null | undefined) => {
   if (!dateStr) return null;
   try {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
-  } catch {
-    return null;
-  }
+    return new Date(dateStr).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+  } catch { return null; }
 };
 
 type PricingOption = 'bundle' | 'teorico' | 'pratico';
+
+const cs = StyleSheet.create({
+  card:         { backgroundColor: 'white', borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: '#f5f5f4', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4 },
+  imgContainer: { height: 180, backgroundColor: '#d4d0cb' },
+  badge:        { position: 'absolute', top: 12, right: 12, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
+  badgeText:    { fontSize: 9, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1.5, color: 'rgba(255,255,255,0.95)' },
+  body:         { padding: 20 },
+  openTag:      { fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, color: '#0ea5e9' },
+  dateTag:      { fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, color: '#a8a29e' },
+  title:        { fontSize: 17, fontWeight: '900', color: '#1c1917', textTransform: 'uppercase', letterSpacing: -0.5, lineHeight: 21, marginBottom: 8 },
+  desc:         { fontSize: 13, color: '#78716c', lineHeight: 19, marginBottom: 12 },
+  duration:     { fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, color: '#a8a29e' },
+  pricingTab:   { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 4, borderRadius: 12 },
+  pricingLabel: { fontSize: 8, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1.5 },
+  pricingPrice: { fontSize: 14, fontWeight: '900' },
+  saveBadge:    { position: 'absolute', top: -8, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, backgroundColor: '#81ccb0' },
+  saveBadgeText:{ fontSize: 7, fontWeight: '900', textTransform: 'uppercase', color: 'white' },
+  ctaBtn:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, borderRadius: 16, marginBottom: 8 },
+  ctaBtnText:   { fontSize: 9, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1.5, color: 'white' },
+  outlineBtn:   { flex: 1, paddingVertical: 12, borderRadius: 14, borderWidth: 2, borderColor: '#1c1917', alignItems: 'center', justifyContent: 'center' },
+  outlineBtnText:{ fontSize: 9, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1.5, color: '#1c1917' },
+  fillBtn:      { flex: 1.5, paddingVertical: 12, borderRadius: 14, backgroundColor: '#0ea5e9', alignItems: 'center', justifyContent: 'center' },
+  fillBtnText:  { fontSize: 9, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1.5, color: 'white' },
+  programBtn:   { paddingVertical: 12, borderRadius: 14, borderWidth: 2, borderColor: '#e7e5e4', alignItems: 'center' },
+  programBtnText:{ fontSize: 9, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1.5, color: '#78716c' },
+});
 
 export function CourseCard({ corso, onBookingClick, openDetails }: CourseCardProps) {
   const [selected, setSelected] = useState<PricingOption>('bundle');
 
   const hasModular = corso.prezzo_teorico != null || corso.prezzo_pratico != null;
   const sumParts = (Number(corso.prezzo_teorico) || 0) + (Number(corso.prezzo_pratico) || 0);
-  const saveAmount =
-    corso.prezzo_bundle != null && sumParts > 0 ? sumParts - Number(corso.prezzo_bundle) : 0;
+  const saveAmount = corso.prezzo_bundle != null && sumParts > 0
+    ? sumParts - Number(corso.prezzo_bundle) : 0;
 
   const color = CATEGORIA_COLORS[corso.categoria || 'Formazione'] || '#002f59';
-  const bg = getCategoriaOpacity(color);
+  const bg = categoriaColor(color);
+  const formattedDate = formatDate(corso.data_inizio);
 
   const opts: { key: PricingOption; label: string; price: number | null; icon: React.ReactNode }[] = [
-    ...(corso.prezzo_bundle != null
-      ? [{ key: 'bundle' as PricingOption, label: 'Tutto', price: Number(corso.prezzo_bundle), icon: <Sparkles size={10} color="#5aaadd" /> }]
-      : []),
-    ...(corso.prezzo_teorico != null
-      ? [{ key: 'teorico' as PricingOption, label: 'Teoria', price: Number(corso.prezzo_teorico), icon: <BookOpen size={10} color="#9f8270" /> }]
-      : []),
-    ...(corso.prezzo_pratico != null
-      ? [{ key: 'pratico' as PricingOption, label: 'Pratica', price: Number(corso.prezzo_pratico), icon: <Mountain size={10} color="#9f8270" /> }]
-      : []),
+    ...(corso.prezzo_bundle != null ? [{ key: 'bundle' as PricingOption, label: 'Tutto', price: Number(corso.prezzo_bundle), icon: <Sparkles size={10} color="#5aaadd" /> }] : []),
+    ...(corso.prezzo_teorico != null ? [{ key: 'teorico' as PricingOption, label: 'Teoria', price: Number(corso.prezzo_teorico), icon: <BookOpen size={10} color="#9f8270" /> }] : []),
+    ...(corso.prezzo_pratico != null ? [{ key: 'pratico' as PricingOption, label: 'Pratica', price: Number(corso.prezzo_pratico), icon: <Mountain size={10} color="#9f8270" /> }] : []),
   ];
 
   const currentOpt = opts.find(o => o.key === selected) ?? opts[0];
-  const bookLabel =
-    selected === 'bundle'
-      ? `${corso.titolo} — Pacchetto Completo`
-      : selected === 'teorico'
-      ? `${corso.titolo} — Modulo Teorico`
-      : `${corso.titolo} — Uscita Didattica`;
-
-  const formattedDate = formatDate(corso.data_inizio);
+  const bookLabel = selected === 'bundle' ? `${corso.titolo} — Pacchetto Completo`
+    : selected === 'teorico' ? `${corso.titolo} — Modulo Teorico`
+    : `${corso.titolo} — Uscita Didattica`;
 
   return (
-    <Animated.View
-      entering={FadeInUp.duration(400)}
-      className="bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-xl shadow-stone-200/50 overflow-hidden border border-stone-100 flex flex-col"
-    >
+    <View style={cs.card}>
       {/* Immagine */}
-      <View className="aspect-[16/9] md:h-56 bg-stone-200 relative overflow-hidden">
-        {corso.immagine_url ? (
-          <Image
-            source={{ uri: corso.immagine_url }}
-            className="absolute inset-0 w-full h-full"
-            resizeMode="cover"
-          />
-        ) : (
-          <Image source={IMG_FALLBACK} className="absolute inset-0 w-full h-full" resizeMode="cover" />
-        )}
-        <View className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
-
-        {/* Badge Categoria */}
-        <View
-          className="absolute top-3 right-3 px-3 py-1.5 rounded-full"
-          style={{
-            backgroundColor: bg,
-            shadowColor: color,
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.3,
-            shadowRadius: 8,
-            elevation: 5,
-          }}
-        >
-          <Text
-            className="text-[9px] font-black uppercase tracking-widest"
-            style={{ color: 'rgba(255,255,255,0.95)' }}
-          >
-            {corso.categoria || 'Formazione'}
-          </Text>
+      <View style={cs.imgContainer}>
+        <Image
+          source={corso.immagine_url ? { uri: corso.immagine_url } : IMG_FALLBACK}
+          style={StyleSheet.absoluteFillObject}
+          resizeMode="cover"
+        />
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.15)' }]} />
+        <View style={[cs.badge, { backgroundColor: bg, shadowColor: color }]}>
+          <Text style={cs.badgeText}>{corso.categoria || 'Formazione'}</Text>
         </View>
       </View>
 
       {/* Corpo */}
-      <View className="p-5 md:p-7 flex-1">
-        {/* Iscrizioni aperte */}
-        <View className="flex-row items-center gap-2.5 mb-2">
-          <Text className="text-[9px] font-bold uppercase tracking-wide text-brand-sky">
-            Iscrizioni aperte
-          </Text>
+      <View style={cs.body}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <Text style={cs.openTag}>Iscrizioni aperte</Text>
           {formattedDate && (
             <>
-              <View className="w-1 h-1 rounded-full bg-stone-300" />
-              <Text className="text-[9px] font-bold uppercase tracking-wide text-stone-400">
-                {formattedDate}
-              </Text>
+              <View style={{ width: 3, height: 3, borderRadius: 2, backgroundColor: '#d4d0cb' }} />
+              <Text style={cs.dateTag}>{formattedDate}</Text>
             </>
           )}
         </View>
 
-        <Text className="text-lg md:text-xl font-black mb-3 text-brand-stone uppercase" numberOfLines={2}>
-          {corso.titolo}
-        </Text>
+        <Text style={cs.title} numberOfLines={2}>{corso.titolo}</Text>
 
-        {/* Descrizione semplificata (senza markdown) */}
-        <Text className="text-stone-500 text-xs md:text-sm mb-5 font-medium flex-1" numberOfLines={3}>
+        <Text style={cs.desc} numberOfLines={3}>
           {corso.descrizione?.replace(/\*+/g, '') ?? ''}
         </Text>
 
-        {/* Durata (opzionale) */}
         {corso.durata && (
-          <View className="flex-row items-center gap-1.5 mb-4">
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 }}>
             <Clock size={12} color="#a8a29e" />
-            <Text className="text-[9px] font-bold uppercase tracking-wide text-stone-400">
-              {corso.durata}
-            </Text>
+            <Text style={cs.duration}>{corso.durata}</Text>
           </View>
         )}
 
-        {/* Sezione Prezzi */}
-        <View className="mt-auto pt-5 border-t border-stone-100">
+        {/* Prezzi */}
+        <View style={{ borderTopWidth: 1, borderTopColor: '#f5f5f4', paddingTop: 16 }}>
           {hasModular ? (
-            <View className="space-y-3">
-              {/* Toggle prezzi */}
-              <View className="flex-row rounded-2xl p-1 gap-1" style={{ backgroundColor: 'rgba(0,0,0,0.04)' }}>
+            <>
+              <View style={{ flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.04)', borderRadius: 16, padding: 4, gap: 4, marginBottom: 12 }}>
                 {opts.map(opt => {
                   const isActive = selected === opt.key;
                   const isBundle = opt.key === 'bundle';
@@ -193,110 +150,51 @@ export function CourseCard({ corso, onBookingClick, openDetails }: CourseCardPro
                     <TouchableOpacity
                       key={opt.key}
                       onPress={() => setSelected(opt.key)}
-                      className="relative flex-1 flex-col items-center justify-center py-2.5 px-1 rounded-xl"
-                      style={{
-                        backgroundColor: isActive ? 'white' : 'transparent',
-                        shadowColor: isActive ? '#000' : 'transparent',
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.1,
-                        shadowRadius: 8,
-                        elevation: isActive ? 3 : 0,
-                      }}
+                      style={[cs.pricingTab, isActive && { backgroundColor: 'white', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 }]}
                     >
                       {isBundle && saveAmount > 0 && (
-                        <View
-                          className="absolute -top-2 px-1.5 py-0.5 rounded-full"
-                          style={{ backgroundColor: '#81ccb0' }}
-                        >
-                          <Text className="text-[7px] font-black uppercase text-white">−€{saveAmount}</Text>
+                        <View style={cs.saveBadge}>
+                          <Text style={cs.saveBadgeText}>−€{saveAmount}</Text>
                         </View>
                       )}
-                      <View className="flex-row items-center gap-1 mb-0.5">
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
                         {opt.icon}
-                        <Text
-                          className="text-[8px] font-black uppercase tracking-widest"
-                          style={{ color: isActive ? (isBundle ? '#5aaadd' : '#9f8270') : '#a8a29e' }}
-                        >
+                        <Text style={[cs.pricingLabel, { color: isActive ? (isBundle ? '#5aaadd' : '#9f8270') : '#a8a29e' }]}>
                           {opt.label}
                         </Text>
                       </View>
-                      <Text
-                        className="text-sm font-black"
-                        style={{ color: isActive ? '#44403c' : '#a8a29e' }}
-                      >
+                      <Text style={[cs.pricingPrice, { color: isActive ? '#44403c' : '#a8a29e' }]}>
                         €{opt.price}
                       </Text>
                     </TouchableOpacity>
                   );
                 })}
               </View>
-
-              {/* CTA Richiedi Info */}
               <TouchableOpacity
                 onPress={() => onBookingClick(bookLabel, 'prenota')}
-                className="w-full min-h-[48px] py-3 rounded-2xl flex-row items-center justify-center gap-2"
-                style={{
-                  backgroundColor: selected === 'bundle' ? '#5aaadd' : '#9f8270',
-                  shadowColor: selected === 'bundle' ? '#5aaadd' : '#9f8270',
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 8,
-                  elevation: 5,
-                }}
+                style={[cs.ctaBtn, { backgroundColor: selected === 'bundle' ? '#5aaadd' : '#9f8270' }]}
               >
-                {selected === 'bundle' ? (
-                  <Sparkles size={11} color="white" />
-                ) : selected === 'teorico' ? (
-                  <BookOpen size={11} color="white" />
-                ) : (
-                  <Mountain size={11} color="white" />
-                )}
-                <Text className="font-black uppercase text-[9px] tracking-widest text-white">
-                  Richiedi Info — €{currentOpt?.price || 0}
-                </Text>
+                {selected === 'bundle' ? <Sparkles size={11} color="white" /> : selected === 'teorico' ? <BookOpen size={11} color="white" /> : <Mountain size={11} color="white" />}
+                <Text style={cs.ctaBtnText}>Richiedi Info — €{currentOpt?.price || 0}</Text>
                 <ArrowRight size={11} color="white" />
               </TouchableOpacity>
-            </View>
+            </>
           ) : (
-            <View className="flex-row gap-3">
-              <TouchableOpacity
-                onPress={() => onBookingClick(corso.titolo, 'info')}
-                className="flex-1 min-h-[48px] bg-white border-2 border-stone-900 py-3 rounded-2xl items-center justify-center"
-              >
-                <Text className="font-black uppercase text-[9px] tracking-widest text-stone-900">
-                  Dettagli
-                </Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 8 }}>
+              <TouchableOpacity onPress={() => onBookingClick(corso.titolo, 'info')} style={cs.outlineBtn}>
+                <Text style={cs.outlineBtnText}>Dettagli</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => onBookingClick(corso.titolo, 'prenota')}
-                className="flex-[1.5] min-h-[48px] py-3 rounded-2xl items-center justify-center flex-row gap-2 bg-brand-sky"
-                style={{
-                  shadowColor: '#0ea5e9',
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.2,
-                  shadowRadius: 8,
-                  elevation: 5,
-                }}
-              >
-                <Text className="font-black uppercase text-[9px] tracking-widest text-white">
-                  Richiedi Info
-                </Text>
+              <TouchableOpacity onPress={() => onBookingClick(corso.titolo, 'prenota')} style={cs.fillBtn}>
+                <Text style={cs.fillBtnText}>Richiedi Info</Text>
               </TouchableOpacity>
             </View>
           )}
-
-          {/* Bottone Vedi programma completo */}
-          <TouchableOpacity
-            onPress={() => openDetails(corso)}
-            className="w-full mt-2.5 py-3 rounded-2xl border-2 border-stone-200 items-center"
-          >
-            <Text className="font-black uppercase text-[9px] tracking-widest text-stone-500">
-              Vedi programma completo
-            </Text>
+          <TouchableOpacity onPress={() => openDetails(corso)} style={cs.programBtn}>
+            <Text style={cs.programBtnText}>Vedi programma completo</Text>
           </TouchableOpacity>
         </View>
       </View>
-    </Animated.View>
+    </View>
   );
 }
 
