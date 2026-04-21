@@ -1,26 +1,40 @@
 // app/(tabs)/attivita.tsx
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
-  View,
-  Text,
-  Image,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  Dimensions,
-  StyleSheet,
-  Modal,
-  Pressable,
+  View, Text, Image, ScrollView, TouchableOpacity,
+  ActivityIndicator, Dimensions, StyleSheet, Modal, Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { Calendar, Clock, ArrowRight, Sparkles, SlidersHorizontal } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import ActivityDetailModal from '../../components/ActivityDetailModal';
 import BookingModal from '../../components/BookingModal';
 
-// --- Tipi (adattati da web) ---
-type Escursione = any; // Sostituire con tipo generato se disponibile
+// --- Tipi (con tutti i campi necessari) ---
+interface Escursione {
+  id: string;
+  created_at: string;
+  data: string | null;
+  titolo: string;
+  descrizione: string | null;
+  descrizione_estesa?: string | null;
+  prezzo: number;
+  difficolta?: string | null;
+  immagine_url: string | null;
+  gallery_urls?: string[] | null;
+  durata?: string | null;
+  attrezzatura?: string | null;
+  attrezzatura_consigliata?: string | null;
+  categoria?: string | null;
+  filosofia?: string | null;
+  lunghezza?: number | null;
+  dislivello?: number | null;
+  lat?: number | null;
+  lng?: number | null;
+  is_active: boolean;
+  _tipo: 'escursione';
+}
+
 interface Campo {
   id: string;
   created_at: string;
@@ -39,11 +53,11 @@ interface Campo {
   lng?: number | null;
   _tipo: 'campo';
 }
+
 type Activity = Escursione | Campo;
 type FilterKey = 'mezza_giornata' | 'intera_giornata' | 'tour' | 'campi';
 
 interface AttivitaPageProps {
-  // onNavigate rimosso, usiamo Expo Router
   onBookingClick: (title: string, mode?: 'info' | 'prenota') => void;
 }
 
@@ -104,12 +118,7 @@ function FilosofiaBadge({ value }: { value: string | null | undefined }) {
   const color = FILOSOFIA_COLORS[value];
   const bg = getFilosofiaOpacity(color);
   return (
-    <View
-      style={[
-        styles.badge,
-        { backgroundColor: bg, shadowColor: color },
-      ]}
-    >
+    <View style={[styles.badge, { backgroundColor: bg, shadowColor: color }]}>
       <Text style={styles.badgeText}>{value}</Text>
     </View>
   );
@@ -127,21 +136,20 @@ function campoToDetail(campo: Campo) {
     difficolta: campo.difficolta ?? null,
     durata: campo.durata ?? null,
     lunghezza: campo.lunghezza ?? null,
-    attrezzatura_consigliata: null,
     attrezzatura: campo.servizi?.join(', ') ?? null,
     filosofia: campo.filosofia ?? null,
+    lat: campo.lat ?? null,
+    lng: campo.lng ?? null,
     _tipo: 'campo' as const,
   };
 }
 
 // --- Componenti interni ---
-
 const ActivityCard: React.FC<{
   activity: Activity;
-  idx: number;
   onDetails: () => void;
   onBook: (mode?: 'info' | 'prenota') => void;
-}> = ({ activity, idx, onDetails, onBook }) => {
+}> = ({ activity, onDetails, onBook }) => {
   const isEsc = activity._tipo === 'escursione';
   const esc = isEsc ? (activity as Escursione) : null;
   const formattedDate = esc?.data
@@ -164,7 +172,6 @@ const ActivityCard: React.FC<{
               <FilosofiaBadge value={(activity as Campo).filosofia || (activity as Campo).slug} />
             )}
       </View>
-
       <View style={styles.cardBody}>
         <View style={styles.cardMeta}>
           {formattedDate && (
@@ -180,15 +187,10 @@ const ActivityCard: React.FC<{
             </View>
           )}
         </View>
-
-        <Text style={styles.cardTitle} numberOfLines={2}>
-          {activity.titolo}
-        </Text>
-
+        <Text style={styles.cardTitle} numberOfLines={2}>{activity.titolo}</Text>
         <Text style={styles.cardDesc} numberOfLines={2}>
           {formatMarkdown(activity.descrizione).replace(/<[^>]*>/g, '')}
         </Text>
-
         <View style={styles.cardActions}>
           <TouchableOpacity style={styles.outlineBtn} onPress={onDetails}>
             <Text style={styles.outlineBtnText}>Dettagli</Text>
@@ -222,8 +224,6 @@ const SkeletonCard = () => (
 // --- Componente Principale ---
 export default function AttivitaPage({ onBookingClick }: AttivitaPageProps) {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
-
   const [escursioni, setEscursioni] = useState<Escursione[]>([]);
   const [campi, setCampi] = useState<Campo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -243,36 +243,71 @@ export default function AttivitaPage({ onBookingClick }: AttivitaPageProps) {
     setTimeout(() => setDrawerClosing(false), 400);
   };
 
-  // Caricamento dati
+  // Caricamento dati ROBUSTO
   useEffect(() => {
     async function load() {
-      const [{ data: escData }, { data: campiData }] = await Promise.all([
-        supabase.from('escursioni').select('*').eq('is_active', true).order('data', { ascending: true }),
-        supabase.from('campi').select('*').order('created_at', { ascending: false }),
-      ]);
-      if (escData) setEscursioni((escData as any[]).map(e => ({ ...e, _tipo: 'escursione' as const })));
-      if (campiData)
-        setCampi(
-          (campiData as any[]).map(row => ({
-            id: row.id,
-            created_at: row.created_at,
-            titolo: row.titolo,
-            descrizione: row.descrizione ?? null,
-            descrizione_estesa: row.descrizione_estesa ?? null,
-            immagine_url: row.immagine_url ?? null,
-            servizi: safeParseArray(row.servizi),
-            slug: row.slug,
-            prezzo: row.prezzo ?? null,
-            durata: row.durata ?? null,
-            difficolta: row.difficolta ?? null,
-            lunghezza: row.lunghezza ?? null,
-            filosofia: row.filosofia ?? null,
-            lat: row.lat ?? null,
-            lng: row.lng ?? null,
-            _tipo: 'campo' as const,
-          }))
-        );
-      setLoading(false);
+      try {
+        const [{ data: escData, error: escError }, { data: campiData, error: campiError }] = await Promise.all([
+          supabase
+            .from('escursioni')
+            .select(`
+              id, created_at, data, titolo, descrizione, descrizione_estesa,
+              prezzo, difficolta, immagine_url, gallery_urls, durata,
+              attrezzatura, categoria, filosofia,
+              lunghezza, dislivello, lat, lng, is_active
+            `)
+            .eq('is_active', true)
+            .order('data', { ascending: true }),
+          supabase
+            .from('campi')
+            .select('*')
+            .order('created_at', { ascending: false }),
+        ]);
+
+        if (escError) console.error('❌ Errore escursioni:', escError);
+        if (campiError) console.error('❌ Errore campi:', campiError);
+
+        if (escData) {
+          console.log('📦 Escursioni ricevute:', escData.length);
+          setEscursioni(
+            (escData as any[]).map(e => ({
+              ...e,
+              lat: e.lat ? Number(e.lat) : null,
+              lng: e.lng ? Number(e.lng) : null,
+              attrezzatura: e.attrezzatura || null,
+              _tipo: 'escursione' as const,
+            }))
+          );
+        }
+
+        if (campiData) {
+          console.log('🏕️ Campi ricevuti:', campiData.length);
+          setCampi(
+            (campiData as any[]).map(row => ({
+              id: row.id,
+              created_at: row.created_at,
+              titolo: row.titolo,
+              descrizione: row.descrizione ?? null,
+              descrizione_estesa: row.descrizione_estesa ?? null,
+              immagine_url: row.immagine_url ?? null,
+              servizi: safeParseArray(row.servizi),
+              slug: row.slug,
+              prezzo: row.prezzo ?? null,
+              durata: row.durata ?? null,
+              difficolta: row.difficolta ?? null,
+              lunghezza: row.lunghezza ?? null,
+              filosofia: row.filosofia ?? null,
+              lat: row.lat ? Number(row.lat) : null,
+              lng: row.lng ? Number(row.lng) : null,
+              _tipo: 'campo' as const,
+            }))
+          );
+        }
+      } catch (error) {
+        console.error('💥 Errore generale load:', error);
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, []);
@@ -304,33 +339,16 @@ export default function AttivitaPage({ onBookingClick }: AttivitaPageProps) {
   const visible = filtered.slice(0, visibleCount);
 
   const FILTERS: { key: FilterKey; label: string; emoji: string; count: number; color: string; textColor?: string }[] = [
-    {
-      key: 'mezza_giornata',
-      label: 'Mezza giornata',
-      emoji: '🌤',
-      count: escursioni.filter(e => e.categoria?.toLowerCase().includes('mezza')).length,
-      color: '#5aaadd',
-    },
-    {
-      key: 'intera_giornata',
-      label: 'Intera giornata',
-      emoji: '☀️',
-      count: escursioni.filter(e => e.categoria?.toLowerCase() === 'giornata' || e.categoria?.toLowerCase().includes('intera')).length,
-      color: '#81ccb0',
-    },
-    {
-      key: 'tour',
-      label: 'Tour',
-      emoji: '🏔',
-      count: escursioni.filter(e => e.categoria?.toLowerCase() === 'tour').length,
-      color: '#f4d98c',
-      textColor: '#7a5e00',
-    },
+    { key: 'mezza_giornata', label: 'Mezza giornata', emoji: '🌤', count: escursioni.filter(e => e.categoria?.toLowerCase().includes('mezza')).length, color: '#5aaadd' },
+    { key: 'intera_giornata', label: 'Intera giornata', emoji: '☀️', count: escursioni.filter(e => e.categoria?.toLowerCase() === 'giornata' || e.categoria?.toLowerCase().includes('intera')).length, color: '#81ccb0' },
+    { key: 'tour', label: 'Tour', emoji: '🏔', count: escursioni.filter(e => e.categoria?.toLowerCase() === 'tour').length, color: '#f4d98c', textColor: '#7a5e00' },
     { key: 'campi', label: 'Campi Estivi', emoji: '⛺️', count: campi.length, color: '#9f8270' },
   ];
 
   const openDetails = (a: Activity) => {
-    setSelectedActivity(a._tipo === 'campo' ? campoToDetail(a as Campo) : a);
+    const detailActivity = a._tipo === 'campo' ? campoToDetail(a as Campo) : a;
+    console.log('🎯 Apertura dettaglio:', { descrizione_estesa: detailActivity.descrizione_estesa, attrezzatura: detailActivity.attrezzatura, lat: detailActivity.lat });
+    setSelectedActivity(detailActivity);
     setIsDetailOpen(true);
   };
 
@@ -358,9 +376,7 @@ export default function AttivitaPage({ onBookingClick }: AttivitaPageProps) {
             ))}
           </ScrollView>
           <View style={{ gap: 16 }}>
-            {[1, 2, 3].map(n => (
-              <SkeletonCard key={n} />
-            ))}
+            {[1, 2, 3].map(n => (<SkeletonCard key={n} />))}
           </View>
         </View>
       </View>
@@ -374,10 +390,7 @@ export default function AttivitaPage({ onBookingClick }: AttivitaPageProps) {
         <View style={styles.header}>
           <Text style={styles.pageTag}>Esplora</Text>
           <View style={styles.titleRow}>
-            <Text style={styles.pageTitle}>
-              Attività{' '}
-              <Text style={styles.pageTitleItalic}>Outdoor.</Text>
-            </Text>
+            <Text style={styles.pageTitle}>Attività <Text style={styles.pageTitleItalic}>Outdoor.</Text></Text>
             <Text style={styles.countBadge}>{filtered.length} attività</Text>
           </View>
           <View style={styles.accentBar} />
@@ -385,28 +398,13 @@ export default function AttivitaPage({ onBookingClick }: AttivitaPageProps) {
           {/* Banner Quiz Zaino */}
           <View style={styles.quizBanner}>
             <View style={styles.quizBannerContent}>
-              <View style={styles.quizIconContainer}>
-                <Text style={styles.quizEmoji}>🎒</Text>
-              </View>
+              <View style={styles.quizIconContainer}><Text style={styles.quizEmoji}>🎒</Text></View>
               <View style={styles.quizTextContainer}>
                 <Text style={styles.quizTag}>Non sai da dove iniziare?</Text>
                 <Text style={styles.quizTitle}>Costruisci il tuo zaino ideale</Text>
-                {isTablet && (
-                  <Text style={styles.quizSubtitle}>
-                    Scegli 3 oggetti e scopri l'escursione perfetta per te
-                  </Text>
-                )}
+                {isTablet && <Text style={styles.quizSubtitle}>Scegli 3 oggetti e scopri l'escursione perfetta per te</Text>}
               </View>
-              <TouchableOpacity
-                style={styles.quizButton}
-                onPress={() => {
-                  if (!isTablet) {
-                    setDrawerOpen(true);
-                  } else {
-                    // scroll to quiz section
-                  }
-                }}
-              >
+              <TouchableOpacity style={styles.quizButton} onPress={() => setDrawerOpen(true)}>
                 <Text style={styles.quizButtonText}>Inizia</Text>
                 <ArrowRight size={12} color="white" />
               </TouchableOpacity>
@@ -420,12 +418,7 @@ export default function AttivitaPage({ onBookingClick }: AttivitaPageProps) {
               <View style={styles.mobileFilterHeader}>
                 <Text style={styles.mobileFilterLabel}>Tipo di Esperienza</Text>
                 {activeFilter && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      setActiveFilter(null);
-                      setVisibleCount(ITEMS_PER_LOAD);
-                    }}
-                  >
+                  <TouchableOpacity onPress={() => { setActiveFilter(null); setVisibleCount(ITEMS_PER_LOAD); }}>
                     <Text style={styles.clearFilterText}>Tutte</Text>
                   </TouchableOpacity>
                 )}
@@ -434,18 +427,9 @@ export default function AttivitaPage({ onBookingClick }: AttivitaPageProps) {
                 {FILTERS.map(f => {
                   const isActive = activeFilter === f.key;
                   return (
-                    <TouchableOpacity
-                      key={f.key}
-                      style={[
-                        styles.mobileFilterPill,
-                        isActive && { backgroundColor: 'white', borderColor: '#e7e5e4', shadowOpacity: 0.1 },
-                      ]}
-                      onPress={() => toggleFilter(f.key)}
-                    >
+                    <TouchableOpacity key={f.key} style={[styles.mobileFilterPill, isActive && { backgroundColor: 'white', borderColor: '#e7e5e4' }]} onPress={() => toggleFilter(f.key)}>
                       <View style={[styles.filterColorDot, { backgroundColor: f.color }]} />
-                      <Text style={[styles.mobileFilterPillText, isActive && { color: STONE }]}>
-                        {f.label}
-                      </Text>
+                      <Text style={[styles.mobileFilterPillText, isActive && { color: STONE }]}>{f.label}</Text>
                       {f.count > 0 && <Text style={styles.filterCount}>{f.count}</Text>}
                     </TouchableOpacity>
                   );
@@ -458,44 +442,17 @@ export default function AttivitaPage({ onBookingClick }: AttivitaPageProps) {
         {/* Filtri desktop sticky */}
         {isTablet && (
           <View style={styles.desktopFilterBar}>
-            <TouchableOpacity
-              style={[
-                styles.resetFilterBtn,
-                activeFilter ? styles.resetFilterBtnInactive : styles.resetFilterBtnActive,
-              ]}
-              onPress={() => {
-                setActiveFilter(null);
-                setVisibleCount(ITEMS_PER_LOAD);
-              }}
-            >
+            <TouchableOpacity style={[styles.resetFilterBtn, activeFilter ? styles.resetFilterBtnInactive : styles.resetFilterBtnActive]} onPress={() => { setActiveFilter(null); setVisibleCount(ITEMS_PER_LOAD); }}>
               <SlidersHorizontal size={12} color={activeFilter ? '#a8a29e' : 'white'} />
             </TouchableOpacity>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }}>
               {FILTERS.map(f => {
                 const isActive = activeFilter === f.key;
                 return (
-                  <TouchableOpacity
-                    key={f.key}
-                    style={[
-                      styles.desktopFilterPill,
-                      isActive
-                        ? { backgroundColor: f.color, shadowColor: f.color }
-                        : { backgroundColor: 'white', borderWidth: 1.5, borderColor: '#e7e5e4' },
-                    ]}
-                    onPress={() => toggleFilter(f.key)}
-                  >
+                  <TouchableOpacity key={f.key} style={[styles.desktopFilterPill, isActive ? { backgroundColor: f.color, shadowColor: f.color } : { backgroundColor: 'white', borderWidth: 1.5, borderColor: '#e7e5e4' }]} onPress={() => toggleFilter(f.key)}>
                     <Text style={{ marginRight: 4 }}>{f.emoji}</Text>
-                    <Text
-                      style={[
-                        styles.desktopFilterPillText,
-                        { color: isActive ? (f.textColor ?? 'white') : '#a8a29e' },
-                      ]}
-                    >
-                      {f.label}
-                    </Text>
-                    {f.count > 0 && (
-                      <Text style={[styles.filterCount, isActive && { color: 'white' }]}>{f.count}</Text>
-                    )}
+                    <Text style={[styles.desktopFilterPillText, { color: isActive ? (f.textColor ?? 'white') : '#a8a29e' }]}>{f.label}</Text>
+                    {f.count > 0 && <Text style={[styles.filterCount, isActive && { color: 'white' }]}>{f.count}</Text>}
                   </TouchableOpacity>
                 );
               })}
@@ -510,59 +467,25 @@ export default function AttivitaPage({ onBookingClick }: AttivitaPageProps) {
               <Text style={styles.emptyEmoji}>🏔️</Text>
               <Text style={styles.emptyTitle}>Nessuna attività disponibile</Text>
               <Text style={styles.emptySubtitle}>Non ci sono risultati per questo filtro al momento.</Text>
-              <TouchableOpacity
-                style={styles.emptyButton}
-                onPress={() => {
-                  setActiveFilter(null);
-                  setVisibleCount(ITEMS_PER_LOAD);
-                }}
-              >
+              <TouchableOpacity style={styles.emptyButton} onPress={() => { setActiveFilter(null); setVisibleCount(ITEMS_PER_LOAD); }}>
                 <Text style={styles.emptyButtonText}>Vedi tutte le attività</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <>
               <View style={styles.cardGrid}>
-                {visible.map((activity, idx) => (
+                {visible.map(activity => (
                   <View key={activity.id} style={styles.cardWrapper}>
-                    <ActivityCard
-                      activity={activity}
-                      idx={idx}
-                      onDetails={() => openDetails(activity)}
-                      onBook={mode => handleBooking(activity.titolo, mode)}
-                    />
+                    <ActivityCard activity={activity} onDetails={() => openDetails(activity)} onBook={mode => handleBooking(activity.titolo, mode)} />
                   </View>
                 ))}
               </View>
-
               {visibleCount < filtered.length && (
-                <TouchableOpacity
-                  style={styles.loadMoreBtn}
-                  onPress={() => setVisibleCount(v => v + ITEMS_PER_LOAD)}
-                >
-                  <Text style={styles.loadMoreText}>
-                    Altre {Math.min(ITEMS_PER_LOAD, filtered.length - visibleCount)} attività
-                  </Text>
+                <TouchableOpacity style={styles.loadMoreBtn} onPress={() => setVisibleCount(v => v + ITEMS_PER_LOAD)}>
+                  <Text style={styles.loadMoreText}>Altre {Math.min(ITEMS_PER_LOAD, filtered.length - visibleCount)} attività</Text>
                 </TouchableOpacity>
               )}
             </>
-          )}
-
-          {/* Quiz Zaino Desktop (solo placeholder) */}
-          {isTablet && (
-            <View style={styles.desktopQuizSection}>
-              <View style={styles.quizDivider} />
-              <Text style={styles.quizSectionTag}>Trova la tua escursione</Text>
-              <Text style={styles.quizSectionTitle}>
-                Costruisci il tuo{' '}
-                <Text style={styles.quizSectionTitleItalic}>zaino ideale.</Text>
-              </Text>
-              <View style={styles.accentBar} />
-              {/* Qui andrebbe AttivitaQuiz, ma per ora lo omettiamo */}
-              <Text style={{ color: '#a8a29e', marginTop: 16 }}>
-                Quiz disponibile prossimamente
-              </Text>
-            </View>
           )}
         </View>
       </ScrollView>
@@ -575,25 +498,17 @@ export default function AttivitaPage({ onBookingClick }: AttivitaPageProps) {
           <View style={styles.drawerHeader}>
             <View>
               <Text style={styles.drawerTag}>Trova la tua escursione</Text>
-              <Text style={styles.drawerTitle}>
-                Cosa metti{' '}
-                <Text style={styles.drawerTitleItalic}>nel tuo zaino?</Text>
-              </Text>
+              <Text style={styles.drawerTitle}>Cosa metti <Text style={styles.drawerTitleItalic}>nel tuo zaino?</Text></Text>
             </View>
-            <TouchableOpacity onPress={closeDrawer} style={styles.drawerCloseBtn}>
-              <Text style={{ fontSize: 20, color: '#78716c' }}>✕</Text>
-            </TouchableOpacity>
+            <TouchableOpacity onPress={closeDrawer} style={styles.drawerCloseBtn}><Text style={{ fontSize: 20, color: '#78716c' }}>✕</Text></TouchableOpacity>
           </View>
           <ScrollView style={styles.drawerContent}>
-            {/* Placeholder per AttivitaQuiz */}
-            <Text style={{ color: '#a8a29e', textAlign: 'center', marginTop: 40 }}>
-              Quiz in arrivo...
-            </Text>
+            <Text style={{ color: '#a8a29e', textAlign: 'center', marginTop: 40 }}>Quiz in arrivo...</Text>
           </ScrollView>
         </View>
       </Modal>
 
-      {/* Bottone FAB mobile */}
+      {/* FAB mobile */}
       {!drawerOpen && !drawerClosing && (
         <TouchableOpacity style={[styles.fab, { bottom: insets.bottom + 16 }]} onPress={() => setDrawerOpen(true)}>
           <Sparkles size={14} color="white" />
@@ -602,22 +517,8 @@ export default function AttivitaPage({ onBookingClick }: AttivitaPageProps) {
       )}
 
       {/* Modali */}
-      <ActivityDetailModal
-        activity={selectedActivity}
-        isOpen={isDetailOpen}
-        onClose={() => {
-          setIsDetailOpen(false);
-          setTimeout(() => setSelectedActivity(null), 300);
-        }}
-        onBookingClick={handleBooking}
-      />
-
-      <BookingModal
-        isOpen={bookingModalOpen}
-        onClose={() => setBookingModalOpen(false)}
-        title={bookingTitle}
-        mode={bookingMode}
-      />
+      <ActivityDetailModal activity={selectedActivity} isOpen={isDetailOpen} onClose={() => { setIsDetailOpen(false); setTimeout(() => setSelectedActivity(null), 300); }} onBookingClick={handleBooking} />
+      <BookingModal isOpen={bookingModalOpen} onClose={() => setBookingModalOpen(false)} title={bookingTitle} mode={bookingMode} />
     </View>
   );
 }

@@ -27,7 +27,30 @@ import { CourseCard, Corso } from '../../components/CourseCard';
 import ActivityDetailModal from '../../components/ActivityDetailModal';
 
 // --- Tipi (invariati) ---
-type Escursione = any;
+interface Escursione {
+  id: string;
+  created_at: string;
+  data: string | null;
+  titolo: string;
+  descrizione: string | null;
+  descrizione_estesa?: string | null;
+  prezzo: number;
+  difficolta?: string | null;
+  immagine_url: string | null;
+  gallery_urls?: string[] | null;
+  durata?: string | null;
+  attrezzatura_consigliata?: string | null;
+  attrezzatura?: string | null;
+  categoria?: string | null;
+  filosofia?: string | null;
+  lunghezza?: number | null;
+  dislivello?: number | null;
+  lat?: number | null;
+  lng?: number | null;
+  is_active: boolean;
+  _tipo: 'escursione';
+}
+
 interface Campo {
   id: string;
   titolo: string;
@@ -182,7 +205,12 @@ export default function Home({ onBookingClick }: HomeProps) {
           supabase.from('campi').select('id, titolo, descrizione, immagine_url, prezzo, durata, slug'),
           supabase.from('corsi').select('*').order('posizione', { ascending: true }),
         ]);
-        const hikes = ((allHikes ?? []) as any[]).map(e => ({ ...e, _tipo: 'escursione' as const }));
+        const hikes = ((allHikes ?? []) as any[]).map(e => ({
+          ...e,
+          lat: e.lat ? Number(e.lat) : null,
+          lng: e.lng ? Number(e.lng) : null,
+          _tipo: 'escursione' as const
+        }));
         const campi = ((allCampi ?? []) as any[]).map(c => ({ ...c, _tipo: 'campo' as const }));
         const mixed = [...hikes, ...campi].sort(() => Math.random() - 0.5);
         setFeaturedActivities(mixed.slice(0, isTablet ? 3 : 2));
