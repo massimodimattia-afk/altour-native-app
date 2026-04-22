@@ -376,9 +376,9 @@ export default function Tessera() {
     <View style={s.container}>
       {!userTessera ? (
         <View style={[s.loginContainer, { paddingTop: insets.top }]}>
-          <TouchableOpacity onPress={() => router.back()} style={s.backBtn}><ChevronLeft size={14} color="#44403c" /><Text style={s.backBtnText}>Home</Text></TouchableOpacity>
+          
           <View style={s.loginCard}>
-            <Image source={require('../../assets/Accesso_tessera.png')} style={s.loginLogo} resizeMode="contain" />
+            <Image source={require('../../assets/altour-logo.png')} style={[s.loginLogo,]} resizeMode="contain" />
             <Text style={s.loginTitle}>TESSERA ALTOUR</Text>
             {loginStep === 'code' ? (
               <>
@@ -530,7 +530,7 @@ const s = StyleSheet.create({
   backBtn: { position: 'absolute', top: 48, left: 20, flexDirection: 'row', alignItems: 'center', padding: 8, backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 20 },
   backBtnText: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', marginLeft: 4, color: '#44403c' },
   loginCard: { width: '100%', maxWidth: 400, backgroundColor: 'white', borderRadius: 40, padding: 32, alignItems: 'center' },
-  loginLogo: { height: 128, width: 'auto', marginBottom: 24, borderRadius: 12 },
+  loginLogo: { height: 128, width: 200, marginBottom: 24, borderRadius: 12 },
   loginTitle: { fontSize: 24, fontWeight: '900', textTransform: 'uppercase', marginBottom: 24 },
   loginInput: { width: '100%', padding: 16, backgroundColor: '#f5f5f4', borderWidth: 1, borderColor: '#e7e5e4', borderRadius: 16, textAlign: 'center', fontWeight: 'bold', fontSize: 16, marginBottom: 16 },
   loginBtn: { width: '100%', padding: 16, backgroundColor: '#292524', borderRadius: 16 },

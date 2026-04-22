@@ -391,7 +391,7 @@ export default function AttivitaPage({ onBookingClick }: AttivitaPageProps) {
           <Text style={styles.pageTag}>Esplora</Text>
           <View style={styles.titleRow}>
             <Text style={styles.pageTitle}>Attività <Text style={styles.pageTitleItalic}>Outdoor.</Text></Text>
-            <Text style={styles.countBadge}>{filtered.length} attività</Text>
+            
           </View>
           <View style={styles.accentBar} />
 
