@@ -1,4 +1,4 @@
-// app/(tabs)/index.tsx - VERSIONE CORRETTA (SENZA Section)
+// app/(tabs)/index.tsx - VERSIONE FINALE COMPLETA E FUNZIONANTE
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -7,8 +7,9 @@ import {
   ScrollView,
   TouchableOpacity,
   Linking,
-  Dimensions,
+  useWindowDimensions,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -24,7 +25,8 @@ import {
 } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { CourseCard, Corso } from '../../components/CourseCard';
-import ActivityDetailModal from '../../components/ActivityDetailModal';
+import ActivityDetailModal, { Activity } from '../../components/ActivityDetailModal';
+import BookingModal from '../../components/BookingModal';
 
 // --- Tipi (invariati) ---
 interface Escursione {
@@ -66,8 +68,6 @@ interface HomeProps {
   onBookingClick?: (title: string, mode?: 'info' | 'prenota') => void;
 }
 
-const { width, height } = Dimensions.get('window');
-const isTablet = width >= 768;
 const SKY = '#0ea5e9';
 const STONE = '#1c1917';
 
@@ -76,74 +76,289 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f2ed' },
   scrollContent: { paddingBottom: 40 },
   // Hero
-  heroContainer: { height, backgroundColor: '#2a2a2a', justifyContent: 'flex-end' },
+  heroContainer: {
+    width: '100%',
+    backgroundColor: '#2a2a2a',
+    overflow: 'hidden',
+  },
   heroImage: StyleSheet.absoluteFillObject,
-  heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.38)' },
-  heroContent: { paddingHorizontal: 24, paddingBottom: 48, alignItems: 'center' },
-  heroTitle: { fontSize: 72, fontWeight: '900', color: 'white', textTransform: 'uppercase', letterSpacing: -2, lineHeight: 72, textAlign: 'center' },
-  heroSub: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 8, textTransform: 'uppercase', marginTop: 6 },
-  heroTagline: { fontSize: 14, color: 'rgba(255,255,255,0.6)', fontWeight: '500', marginBottom: 28, marginTop: 8 },
-  heroBtnRow: { flexDirection: 'row', gap: 10, width: '100%', maxWidth: 360, marginBottom: 24 },
-  heroBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(255,255,255,0.1)' },
-  heroBtnTxt: { color: 'white', fontWeight: '900', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1.5 },
-  statsBox: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', borderRadius: 20, paddingVertical: 16, paddingHorizontal: 12, width: '100%', maxWidth: 400 },
-  statItem: { alignItems: 'center', gap: 4 },
-  statValue: { fontSize: 15, fontWeight: '900', color: 'white' },
-  statLabel: { fontSize: 9, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: '700' },
+  heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
+  heroContent: {
+    flex: 1,
+    paddingHorizontal: 24,
+    justifyContent: 'space-between',
+  },
+  heroHeader: {
+    alignItems: 'center',
+    width: '100%',
+    marginTop: '15%',
+  },
+  heroTitle: {
+    fontSize: Platform.select({ ios: 64, android: 56, default: 72 }),
+    fontWeight: '900',
+    color: 'white',
+    textTransform: 'uppercase',
+    letterSpacing: -2,
+    lineHeight: Platform.select({ ios: 64, android: 56, default: 72 }),
+    textAlign: 'center',
+  },
+  heroSub: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.85)',
+    letterSpacing: 10,
+    textTransform: 'uppercase',
+    marginTop: 8,
+  },
+  heroTagline: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.8)',
+    fontWeight: '500',
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  heroInteractive: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  statsBox: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    maxWidth: 400,
+    marginBottom: 30,
+  },
+  statItem: { alignItems: 'center', gap: 6, flex: 1 },
+  statValue: { fontSize: 20, fontWeight: '900', color: 'white' },
+  statLabel: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    fontWeight: '700',
+  },
+  heroBtnColumn: { width: '100%', maxWidth: 360, gap: 12 },
+  heroBtnPrimary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    backgroundColor: SKY,
+    shadowColor: SKY,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  heroBtnPrimaryTxt: {
+    color: 'white',
+    fontWeight: '900',
+    fontSize: 14,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+  },
+  heroBtnSecondary: { paddingVertical: 12, alignItems: 'center' },
+  heroBtnSecondaryTxt: {
+    color: 'rgba(255,255,255,0.8)',
+    fontWeight: '700',
+    fontSize: 13,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    textDecorationLine: 'underline',
+  },
   // Sezioni
   section: { paddingHorizontal: 16, paddingTop: 40, paddingBottom: 20 },
   accent: { width: 28, height: 3, borderRadius: 2, backgroundColor: SKY },
   tag: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 3 },
-  heading: { fontSize: 34, fontWeight: '900', color: STONE, textTransform: 'uppercase', letterSpacing: -1, lineHeight: 36, flex: 1 },
+  heading: {
+    fontSize: 34,
+    fontWeight: '900',
+    color: STONE,
+    textTransform: 'uppercase',
+    letterSpacing: -1,
+    lineHeight: 36,
+    flex: 1,
+  },
   headingItalic: { fontStyle: 'italic', fontWeight: '300', color: SKY, letterSpacing: 0 },
   seeAll: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1.5, color: '#a8a29e' },
-  seeAllCircle: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: '#e7e5e4', alignItems: 'center', justifyContent: 'center' },
-  // Card
-  card: { backgroundColor: 'white', borderRadius: 28, overflow: 'hidden', borderWidth: 1, borderColor: '#f5f5f4', shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 24, elevation: 6 },
+  seeAllCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#e7e5e4',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Card Voucher
+  card: {
+    backgroundColor: 'white',
+    borderRadius: 28,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#f5f5f4',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 6,
+  },
   cardImg: { height: 200, backgroundColor: '#d4d0cb' },
   cardImgOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(28,25,23,0.55)' },
   cardImgContent: { position: 'absolute', bottom: 20, left: 24, right: 24 },
   cardImgTagRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   cardImgTag: { fontSize: 9, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 3, color: 'white' },
-  cardImgTitle: { fontSize: 22, fontWeight: '900', color: 'white', textTransform: 'uppercase', letterSpacing: -0.5, lineHeight: 26, fontStyle: 'italic' },
+  cardImgTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: 'white',
+    textTransform: 'uppercase',
+    letterSpacing: -0.5,
+    lineHeight: 26,
+    fontStyle: 'italic',
+  },
   cardBody: { padding: 24, backgroundColor: '#faf9f7' },
   cardDesc: { fontSize: 14, color: '#78716c', lineHeight: 22, marginBottom: 20 },
-  voucherRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  voucherBtn: { flex: 1, minWidth: 80, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, borderWidth: 2 },
+  voucherRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 20,
+  },
+  voucherBtn: {
+    flex: 1,
+    maxWidth: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 2,
+  },
   voucherBtnTxt: { fontSize: 16, fontWeight: '900' },
   voucherBtnTag: { fontSize: 8, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1, marginTop: 2 },
-  primaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 12, backgroundColor: STONE },
-  primaryBtnTxt: { color: 'white', fontWeight: '900', fontSize: 10, textTransform: 'uppercase', letterSpacing: 2 },
+  primaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: STONE,
+  },
+  primaryBtnTxt: {
+    color: 'white',
+    fontWeight: '900',
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+  },
   // Attività card
-  actCard: { backgroundColor: 'white', borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: '#f5f5f4', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4 },
+  actCard: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#f5f5f4',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 4,
+  },
   actImg: { height: 200, backgroundColor: '#d4d0cb' },
   actImgOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.2)' },
   actBody: { padding: 20 },
   actMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
   actMetaTxt: { fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1, color: SKY },
-  actTitle: { fontSize: 18, fontWeight: '900', color: STONE, textTransform: 'uppercase', letterSpacing: -0.5, lineHeight: 22, marginBottom: 10 },
+  actTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: STONE,
+    textTransform: 'uppercase',
+    letterSpacing: -0.5,
+    lineHeight: 22,
+    marginBottom: 10,
+  },
   actDesc: { fontSize: 13, color: '#78716c', lineHeight: 20, marginBottom: 20 },
   actBtnRow: { flexDirection: 'row', gap: 10, borderTopWidth: 1, borderTopColor: '#f5f5f4', paddingTop: 16 },
-  outlineBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 2, borderColor: '#e7e5e4', alignItems: 'center' },
+  outlineBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#e7e5e4',
+    alignItems: 'center',
+  },
   outlineBtnTxt: { fontWeight: '900', fontSize: 9, textTransform: 'uppercase', letterSpacing: 2, color: '#57534e' },
   fillBtn: { flex: 1.5, paddingVertical: 12, borderRadius: 12, alignItems: 'center', backgroundColor: SKY },
   fillBtnTxt: { fontWeight: '900', fontSize: 9, textTransform: 'uppercase', letterSpacing: 2, color: 'white' },
   // Badge
-  badge: { position: 'absolute', top: 12, right: 12, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
-  badgeText: { fontSize: 9, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1.5, color: 'rgba(255,255,255,0.95)' },
+  badge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  badgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    color: 'rgba(255,255,255,0.95)',
+  },
   // FAB
-  fab: { position: 'absolute', right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: '#25D366', alignItems: 'center', justifyContent: 'center', shadowColor: '#25D366', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 8 },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#25D366',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#25D366',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
   // Skeleton
-  skeletonCard: { backgroundColor: 'white', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#f5f5f4' },
+  skeletonCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#f5f5f4',
+  },
 });
 
 // --- Utility functions ---
 const FILOSOFIA_COLORS: Record<string, string> = {
-  Avventura: '#e94544', Benessere: '#a5d9c9', 'Borghi più belli': '#946a52',
-  Cammini: '#e3c45d', "Educazione all'aperto": '#01aa9f', Eventi: '#ffc0cb',
-  Formazione: '#002f59', 'Immersi nel verde': '#358756', 'Luoghi dello spirito': '#c8a3c9',
-  Novità: '#75c43c', Speciali: '#b8163c', 'Tra mare e cielo': '#7aaecd',
-  'Trek urbano': '#f39452', 'Tracce sulla neve': '#a8cce0', 'Cielo stellato': '#1e2855',
+  Avventura: '#e94544',
+  Benessere: '#a5d9c9',
+  'Borghi più belli': '#946a52',
+  Cammini: '#e3c45d',
+  "Educazione all'aperto": '#01aa9f',
+  Eventi: '#ffc0cb',
+  Formazione: '#002f59',
+  'Immersi nel verde': '#358756',
+  'Luoghi dello spirito': '#c8a3c9',
+  Novità: '#75c43c',
+  Speciali: '#b8163c',
+  'Tra mare e cielo': '#7aaecd',
+  'Trek urbano': '#f39452',
+  'Tracce sulla neve': '#a8cce0',
+  'Cielo stellato': '#1e2855',
 };
 
 function getFilosofiaOpacity(color: string): string {
@@ -171,9 +386,9 @@ function stripMarkdown(text: string | null): string {
 }
 
 const PRESET_VOUCHERS = [
-  { amount: 10, tag: null, highlight: false }, { amount: 20, tag: null, highlight: false },
-  { amount: 60, tag: 'Top', highlight: true }, { amount: 100, tag: null, highlight: false },
-  { amount: 200, tag: 'Premium', highlight: false }, { amount: 300, tag: null, highlight: false },
+  { amount: 20, tag: null, highlight: false },
+  { amount: 60, tag: 'Top', highlight: true },
+  { amount: 100, tag: null, highlight: false },
 ];
 
 const SkeletonCard = () => (
@@ -188,13 +403,20 @@ const SkeletonCard = () => (
 
 // --- Componente Principale ---
 export default function Home({ onBookingClick }: HomeProps) {
+  const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+
+  const isTablet = width >= 768;
+
   const [featuredActivities, setFeaturedActivities] = useState<FeaturedActivity[]>([]);
   const [courses, setCourses] = useState<Corso[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedActivity, setSelectedActivity] = useState<any | null>(null);
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [bookingTitle, setBookingTitle] = useState('');
+  const [bookingMode, setBookingMode] = useState<'info' | 'prenota'>('info');
 
   useEffect(() => {
     async function loadData() {
@@ -209,7 +431,7 @@ export default function Home({ onBookingClick }: HomeProps) {
           ...e,
           lat: e.lat ? Number(e.lat) : null,
           lng: e.lng ? Number(e.lng) : null,
-          _tipo: 'escursione' as const
+          _tipo: 'escursione' as const,
         }));
         const campi = ((allCampi ?? []) as any[]).map(c => ({ ...c, _tipo: 'campo' as const }));
         const mixed = [...hikes, ...campi].sort(() => Math.random() - 0.5);
@@ -221,22 +443,25 @@ export default function Home({ onBookingClick }: HomeProps) {
       setLoading(false);
     }
     loadData();
-  }, []);
+  }, [isTablet]);
 
-  const openDetails = useCallback((activity: any) => {
+  const openDetails = useCallback((activity: Activity) => {
     setSelectedActivity(activity);
     setIsDetailOpen(true);
   }, []);
 
   const handleBooking = (title: string, mode?: 'info' | 'prenota') => {
-    if (onBookingClick) onBookingClick(title, mode);
-    else Linking.openURL(`https://wa.me/393281613762?text=Info su ${title}`);
+    setBookingTitle(title);
+    setBookingMode(mode || 'info');
+    setBookingModalOpen(true);
   };
 
-  const nav = (page: string) => {
-    if (page === 'attivita') router.push('/attivita');
-    else if (page === 'corsi') router.push('/corsi');
-  };
+const nav = (page: string) => {
+  if (page === 'attivita') router.push('/attivita');
+  else if (page === 'corsi') router.push('/corsi');
+  else if (page === 'tessera') router.push('/tessera');
+  else if (page === 'contatti') router.push('/contatti');
+};
 
   if (loading) {
     return (
@@ -254,40 +479,44 @@ export default function Home({ onBookingClick }: HomeProps) {
     <View style={s.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
         {/* HERO */}
-        <View style={s.heroContainer}>
+        <View style={[s.heroContainer, { height }]}>
           <Image
-            source={{ uri: 'https://rpzbiqzjyculxquespos.supabase.co/storage/v1/object/public/Images/IMG_20220904_150458.webp' }}
+            source={{ uri: 'https://rpzbiqzjyculxquespos.supabase.co/storage/v1/object/public/Images/intro-mobile.webp' }}
             style={s.heroImage}
             resizeMode="cover"
           />
           <View style={s.heroOverlay} />
-          <View style={[s.heroContent, { paddingBottom: insets.bottom + 48 }]}>
-            <Text style={s.heroTitle}>Altour</Text>
-            <Text style={s.heroSub}>Italy</Text>
-            <Text style={s.heroTagline}>Formazione ed attività outdoor</Text>
-            <View style={s.heroBtnRow}>
-              <TouchableOpacity onPress={() => nav('attivita')} style={s.heroBtn}>
-                <Text style={s.heroBtnTxt}>Esplora Attività</Text>
-                <ArrowRight size={12} color="white" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => nav('corsi')} style={s.heroBtn}>
-                <Text style={s.heroBtnTxt}>Vai all'Accademia</Text>
-                <ArrowRight size={12} color="white" />
-              </TouchableOpacity>
+          <View style={[s.heroContent, { paddingTop: insets.top + 20 }]}>
+            <View style={s.heroHeader}>
+              <Text style={s.heroTitle}>Altour</Text>
+              <Text style={s.heroSub}>Italy</Text>
+              <Text style={s.heroTagline}>Formazione ed attività outdoor</Text>
             </View>
-            <View style={s.statsBox}>
-              {[
-                { v: '10 anni', l: 'Esperienza', I: TrendingUp },
-                { v: 'AIGAE', l: 'Guide', I: Shield },
-                { v: '800+', l: 'Tesserati', I: Users },
-              ].map((stat, i) => (
-                <View key={i} style={s.statItem}>
-                  <stat.I size={14} color={SKY} />
-                  <Text style={s.statValue}>{stat.v}</Text>
-                  <Text style={s.statLabel}>{stat.l}</Text>
-                </View>
-              ))}
+            <View style={s.heroInteractive}>
+              <View style={s.statsBox}>
+                {[
+                  { v: '10 anni', l: 'Esperienza', I: TrendingUp },
+                  { v: 'AIGAE', l: 'Guide', I: Shield },
+                  { v: '800+', l: 'Tesserati', I: Users },
+                ].map((stat, i) => (
+                  <View key={i} style={s.statItem}>
+                    <stat.I size={20} color={SKY} />
+                    <Text style={s.statValue}>{stat.v}</Text>
+                    <Text style={s.statLabel}>{stat.l}</Text>
+                  </View>
+                ))}
+              </View>
+              <View style={s.heroBtnColumn}>
+                <TouchableOpacity onPress={() => nav('attivita')} style={s.heroBtnPrimary}>
+                  <Text style={s.heroBtnPrimaryTxt}>Esplora Attività</Text>
+                  <ArrowRight size={16} color="white" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => nav('corsi')} style={s.heroBtnSecondary}>
+                  <Text style={s.heroBtnSecondaryTxt}>Vai all'Accademia</Text>
+                </TouchableOpacity>
+              </View>
             </View>
+            <View style={{ height: insets.bottom }} />
           </View>
         </View>
 
@@ -360,7 +589,7 @@ export default function Home({ onBookingClick }: HomeProps) {
                   </TouchableOpacity>
                 ))}
               </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 12 }}>
                 <View style={{ flex: 1, height: 1, backgroundColor: '#e7e5e4' }} />
                 <Text style={{ fontSize: 8, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 2, color: '#d4d0cb' }}>oppure</Text>
                 <View style={{ flex: 1, height: 1, backgroundColor: '#e7e5e4' }} />
@@ -470,6 +699,13 @@ export default function Home({ onBookingClick }: HomeProps) {
           onBookingClick={handleBooking}
         />
       )}
+
+      <BookingModal
+        isOpen={bookingModalOpen}
+        onClose={() => setBookingModalOpen(false)}
+        title={bookingTitle}
+        mode={bookingMode}
+      />
 
       {!isDetailOpen && (
         <TouchableOpacity

@@ -6,11 +6,11 @@ import {
   ScrollView,
   ActivityIndicator,
   StyleSheet,
-  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import ActivityDetailModal from '../../components/ActivityDetailModal';
+import BookingModal from '../../components/BookingModal';
 import { CourseCard, Corso } from '../../components/CourseCard';
 
 // --- Utility per normalizzare la categoria (invariata) ---
@@ -41,17 +41,18 @@ const SkeletonCard = () => (
   </View>
 );
 
-interface CorsiPageProps {
-  onBookingClick: (title: string, mode?: 'info' | 'prenota') => void;
-}
-
-export default function CorsiPage({ onBookingClick }: CorsiPageProps) {
+export default function CorsiPage() {
   const insets = useSafeAreaInsets();
   const [corsi, setCorsi] = useState<Corso[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedActivity, setSelectedActivity] = useState<any | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  // Stati per il modale di prenotazione
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [bookingTitle, setBookingTitle] = useState('');
+  const [bookingMode, setBookingMode] = useState<'info' | 'prenota'>('info');
 
   useEffect(() => {
     async function fetchCorsi() {
@@ -85,6 +86,13 @@ export default function CorsiPage({ onBookingClick }: CorsiPageProps) {
   const handleCloseDetail = () => {
     setIsDetailOpen(false);
     setTimeout(() => setSelectedActivity(null), 300);
+  };
+
+  // Funzione interna per aprire il modale di prenotazione
+  const handleBooking = (title: string, mode?: 'info' | 'prenota') => {
+    setBookingTitle(title);
+    setBookingMode(mode || 'info');
+    setBookingModalOpen(true);
   };
 
   if (loading) {
@@ -141,7 +149,7 @@ export default function CorsiPage({ onBookingClick }: CorsiPageProps) {
               <View key={corso.id} style={styles.cardWrapper}>
                 <CourseCard
                   corso={corso}
-                  onBookingClick={onBookingClick}
+                  onBookingClick={handleBooking}
                   openDetails={openDetails}
                 />
               </View>
@@ -155,7 +163,15 @@ export default function CorsiPage({ onBookingClick }: CorsiPageProps) {
         activity={selectedActivity}
         isOpen={isDetailOpen}
         onClose={handleCloseDetail}
-        onBookingClick={onBookingClick}
+        onBookingClick={handleBooking}
+      />
+
+      {/* Modale di prenotazione */}
+      <BookingModal
+        isOpen={bookingModalOpen}
+        onClose={() => setBookingModalOpen(false)}
+        title={bookingTitle}
+        mode={bookingMode}
       />
     </>
   );

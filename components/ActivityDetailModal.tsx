@@ -14,7 +14,7 @@ export interface Activity {
   titolo: string;
   descrizione: string | null;
   descrizione_estesa?: string | null;
-  prezzo: number;
+  prezzo?: number | null;
   immagine_url: string | null;
   gallery_urls?: string[] | null;
   difficolta?: string | null;
@@ -30,6 +30,7 @@ export interface Activity {
   lng?: number | string | null;
   slug?: string | null;
   min_partecipanti?: number | null;
+  filosofia?: string | null;
 }
 
 interface ActivityDetailModalProps {
@@ -54,11 +55,24 @@ function stripMarkdown(text: string): string {
     .replace(/<[^>]*>/g, '');
 }
 
+
+
 const MiniMap = memo(({ lat, lng }: { lat: number; lng: number }) => {
   const nLat = Number(lat), nLng = Number(lng);
   if (isNaN(nLat) || isNaN(nLng) || (nLat === 0 && nLng === 0)) return null;
-  const staticMapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${nLat},${nLng}&zoom=14&size=600x300&maptype=mapnik&markers=${nLat},${nLng},lightblue`;
-  const openMaps = () => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${nLat},${nLng}`);
+
+  // ── Geoapify Static Maps API — gratuita, affidabile, HTTPS ──
+  // Registrati su geoapify.com per la tua API key (piano free: 3000 req/giorno)
+  const GEOAPIFY_KEY = 'e80e1fa888394ae09b85cf46fc2d246b';
+  const staticMapUrl =
+    `https://maps.geoapify.com/v1/staticmap?style=osm-bright&` +
+    `width=600&height=300&center=lonlat:${nLng},${nLat}&zoom=14&` +
+    `marker=lonlat:${nLng},${nLat};color:%230ea5e9;size:medium&` +
+    `apiKey=${GEOAPIFY_KEY}`;
+
+  const openMaps = () =>
+    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${nLat},${nLng}`);
+
   return (
     <View style={ms.mapWrapper}>
       <View style={ms.mapHeader}>
@@ -72,11 +86,18 @@ const MiniMap = memo(({ lat, lng }: { lat: number; lng: number }) => {
         </TouchableOpacity>
       </View>
       <TouchableOpacity onPress={openMaps} style={ms.mapImageContainer}>
-        <Image source={{ uri: staticMapUrl }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+        <Image
+          source={{ uri: staticMapUrl }}
+          style={StyleSheet.absoluteFillObject}
+          resizeMode="cover"
+          // ── mostra grigio mentre carica ──
+          onError={(e) => console.warn('Mappa non caricata:', e.nativeEvent.error)}
+        />
       </TouchableOpacity>
     </View>
   );
 });
+
 
 const EquipmentList = memo(({ text }: { text: string }) => {
   const items = useMemo(

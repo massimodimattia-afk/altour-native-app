@@ -39,9 +39,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="legale"
+        name="contatti"
         options={{
-          title: "Legale",
+          title: "Contatti",
           tabBarIcon: ({ color, size }) => <FileText color={color} size={size} />,
         }}
       />
